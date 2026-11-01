@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CCDP10002 — The Electronic Arts: Vision and Sound</title>
+<meta name="description" content="An interactive weekly journal for CCDP10002, built around the connections between weeks.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- deep-space background -->
+<canvas id="starfield" aria-hidden="true"></canvas>
+<div id="nebula" aria-hidden="true"></div>
+
+<!-- ======================================================= VIEW 1: GALAXY -->
+<main id="galaxy" class="view galaxy">
+
+  <header class="masthead">
+    <p class="mono kicker">CCDP10002</p>
+    <h1>The Electronic Arts: <em>Vision and Sound</em></h1>
+    <p class="mono sub">Weekly journal &mdash; a map of connections, not a list of weeks</p>
+  </header>
+
+  <svg id="sky" aria-label="Star map of journal weeks. Each star is a week; lines are connections between them.">
+    <defs id="sky-defs"></defs>
+    <g id="camera">
+      <g id="timeline-layer" class="timeline-layer" aria-hidden="true"></g>
+      <g id="link-layer"></g>
+      <g id="node-layer"></g>
+    </g>
+  </svg>
+
+  <div class="hud">
+    <p class="hint mono" id="hint">Drag a star &middot; click to open the week &middot; each week sounds its own harmonic</p>
+    <div class="hud-row">
+      <ul class="legend mono" id="legend"></ul>
+      <div class="hud-buttons">
+        <button type="button" class="ctrl mono" id="toggle-timeline" aria-pressed="false">Show timeline</button>
+        <button type="button" class="ctrl mono" id="toggle-sound" aria-pressed="false">Sound: on</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===================================================== VIEW 2: ONE WEEK -->
+<article id="week-view" class="view week-view" hidden>
+
+  <nav class="week-bar">
+    <button type="button" class="ctrl mono" id="back-to-galaxy">&larr; Back to galaxy</button>
+    <button type="button" class="ctrl mono" id="replay-tone">&nbsp;</button>
+  </nav>
+
+  <div class="week-panel">
+    <header class="week-head">
+      <p class="mono week-meta"><span class="dot" id="week-dot"></span><span id="week-meta-text"></span></p>
+      <h2 id="week-title"></h2>
+      <p class="placeholder-badge mono" id="week-placeholder" hidden>Placeholder content</p>
+    </header>
+
+    <figure class="collage" id="week-collage"></figure>
+    <div class="collage-captions" id="week-captions"></div>
+
+    <div class="journal" id="week-body"></div>
+
+    <section class="connected" id="week-connected">
+      <h3 class="mono">Connected stars</h3>
+      <ul class="chips" id="week-chips"></ul>
+    </section>
+
+    <nav class="week-nav">
+      <button type="button" class="ctrl mono" id="prev-week"></button>
+      <button type="button" class="ctrl mono" id="next-week"></button>
+    </nav>
+  </div>
+
+</article>
+
+<!-- ======================================================= FLOATING LAYERS -->
+<div id="star-tip" class="star-tip" hidden></div>
+<div id="edge-card" class="card" hidden></div>
+<div id="phrase-pop" class="card" hidden></div>
+
+<div id="lightbox" class="lightbox" hidden>
+  <button type="button" class="lightbox-close mono" id="lightbox-close">Close &times;</button>
+  <img id="lightbox-img" alt="">
+  <p class="mono" id="lightbox-caption"></p>
+</div>
+
+<noscript>
+  <p style="padding:2rem;color:#dce3ec;font-family:serif">
+    This journal is an interactive star map and needs JavaScript. The written entries live in
+    <code>data/weeks.js</code>.
+  </p>
+</noscript>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="data/weeks.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
