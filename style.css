@@ -122,6 +122,30 @@ body.galaxy-locked { overflow: hidden; }
   text-transform: none;
 }
 
+.masthead .colophon {
+  margin: 0.45rem 0 0;
+  text-transform: none;
+  pointer-events: auto;           /* the masthead itself is click-through */
+  position: relative;
+  z-index: 4;
+  max-width: 24rem;
+  line-height: 1.6;
+}
+
+.masthead .colophon a {
+  display: inline-block;          /* so the whole wrapped block is a target */
+  pointer-events: auto;
+  color: rgba(107, 116, 138, 0.9);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(107, 116, 138, 0.35);
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.masthead .colophon a:hover {
+  color: var(--ink-dim);
+  border-bottom-color: var(--ink-faint);
+}
+
 .hint {
   margin: 0 0 0.9rem;
   color: var(--ink-faint);
@@ -460,6 +484,46 @@ body.galaxy-locked { overflow: hidden; }
 .collage-captions span { display: block; }
 .collage-captions b { color: var(--ink-dim); font-weight: 500; }
 
+/* ------------------------------------------------------- video + demos */
+.clip { margin: clamp(1.6rem, 4vw, 2.4rem) 0 0; }
+
+.clip video {
+  display: block;
+  width: 100%;
+  border-radius: 0.4rem;
+  background: #000;
+}
+
+.clip figcaption {
+  margin: 0.6rem 0 0;
+  color: var(--ink-faint);
+  text-transform: none;
+  line-height: 1.6;
+}
+
+.live-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: clamp(1.2rem, 3vw, 1.8rem) 0 0;
+}
+
+.live-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid rgba(220, 227, 236, 0.28);
+  border-radius: 0.5rem;
+  background: rgba(232, 236, 243, 0.05);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.live-link:hover { background: rgba(232, 236, 243, 0.11); border-color: rgba(220, 227, 236, 0.45); }
+.live-link .mono { color: var(--ink-faint); text-transform: none; }
+
 /* -------------------------------------------------------------- journal */
 .journal {
   margin: clamp(2rem, 5vw, 3rem) 0 0;
@@ -600,7 +664,7 @@ body.galaxy-locked { overflow: hidden; }
 
 @media (max-width: 640px) {
   .masthead { max-width: 70vw; }
-  .masthead .sub { display: none; }
+  .masthead .sub, .masthead .colophon { display: none; }
   .hint { font-size: 0.62rem; }
   .hud-row { align-items: flex-start; flex-direction: column; }
   .legend { gap: 0.25rem 0.9rem; font-size: 0.62rem; }
@@ -615,4 +679,76 @@ body.galaxy-locked { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
   .shot img, .ctrl, .chip, .phrase, .timeline-path { transition-duration: 0.001ms !important; }
+}
+
+/* ===========================================================================
+   PER-WEEK FORMATS
+   "each week can be a Unique format" — each theme gets its own page
+   furniture: a rule drawn in its own idiom, its own corners, its own
+   heading treatment. Content is untouched; only the room changes.
+   ========================================================================= */
+
+.rule {
+  margin: clamp(2rem, 5vw, 2.8rem) 0 0;
+  color: var(--week-color, var(--ink-faint));
+  opacity: 0.5;
+  line-height: 0;
+}
+
+.rule svg { display: block; width: 100%; height: 28px; }
+
+/* --- sound: loose, resonant, italic ------------------------------------- */
+[data-format="sound"] .week-head h2 { font-style: italic; letter-spacing: 0.005em; }
+[data-format="sound"] .journal { line-height: 1.85; }
+[data-format="sound"] .rule { opacity: 0.75; }
+
+/* --- space: Bauhaus. Square everything, tighten the grid, shout quietly -- */
+[data-format="space"] .week-panel,
+[data-format="space"] .shot,
+[data-format="space"] .clip video { border-radius: 0; }
+[data-format="space"] .collage { gap: 2px; }
+[data-format="space"] .week-head h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: clamp(1.5rem, 3.4vw, 2.4rem);
+  line-height: 1.12;
+}
+[data-format="space"] .chip { border-radius: 0; }
+[data-format="space"] .ctrl { border-radius: 0; }
+[data-format="space"] .journal { max-width: 32rem; }
+
+/* --- nature: nothing is a rectangle ------------------------------------- */
+[data-format="nature"] .week-panel { border-radius: 1.8rem; }
+[data-format="nature"] .shot { border-radius: 1.2rem; }
+[data-format="nature"] .collage { gap: 0.8rem; }
+[data-format="nature"] .chip { border-radius: 999px; }
+[data-format="nature"] .week-head h2 { letter-spacing: -0.015em; }
+
+/* --- vision: a strip of frames ------------------------------------------ */
+[data-format="vision"] .collage { gap: 3px; }
+[data-format="vision"] .shot {
+  border-radius: 0.15rem;
+  outline: 1px solid rgba(220, 227, 236, 0.18);
+  outline-offset: -1px;
+}
+[data-format="vision"] .collage-captions b {
+  font-variant-numeric: tabular-nums;
+  color: var(--week-color, var(--ink-dim));
+}
+[data-format="vision"] .week-meta { letter-spacing: 0.22em; }
+
+/* --- ideas: a page, not a screen ---------------------------------------- */
+[data-format="ideas"] .journal { max-width: 31rem; }
+[data-format="ideas"] .journal > p::first-letter {
+  float: left;
+  font-size: 3.1em;
+  line-height: 0.84;
+  padding: 0.06em 0.1em 0 0;
+  color: var(--week-color, var(--ink));
+}
+[data-format="ideas"] .rule { opacity: 0.3; }
+
+@media (max-width: 640px) {
+  [data-format="space"] .collage { gap: 2px; }
+  [data-format="ideas"] .journal > p::first-letter { font-size: 2.6em; }
 }

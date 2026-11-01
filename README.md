@@ -15,6 +15,8 @@ style.css         all styling; theme colours are injected from main.js
 main.js           link-markup parser, graph builder, force layout, audio, routing
 data/weeks.js     >>> the only file you normally edit <<<
 images/           photos, one set per week
+media/            video clips referenced by a week's `video` field
+pentatonic/       the group project itself, playable in the browser
 ```
 
 Open it by double-clicking `index.html`. D3 and the Google fonts come from a CDN,
@@ -36,6 +38,10 @@ Everything lives in [`data/weeks.js`](data/weeks.js) as `window.WEEKS`. One entr
   placeholder: true,            // optional; shows a "placeholder content" badge
   photos: [
     { src: "images/w9-1.jpg", caption: "The Foley pit, props laid out." }
+  ],
+  video: { src: "media/clip.mp4", caption: "..." },          // optional
+  links: [                                                   // optional
+    { href: "pentatonic/index.html", label: "Open the demo", note: "needs a webcam" }
   ],
   body:   "One free-writing paragraph with inline link markup..."
 }

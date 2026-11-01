@@ -1,0 +1,1199 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>五音 · Pentatonic Vision</title>
+<style>
+  :root{
+    --green:#39ff6a;
+    --green-dim:#0f5c2a;
+    --bg:#000;
+    --panel-bg:rgba(10,14,10,0.80);
+    --accent:#ffe066;
+  }
+  html,body{
+    margin:0;padding:0;height:100%;background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;
+    color:var(--green);
+    overflow:hidden;
+  }
+  #stage{ position:relative; width:100vw;height:100vh; background:#000; overflow:hidden; }
+  #stage.mirror #mediaLayer{ transform: scaleX(-1); }
+  #mediaLayer{ position:absolute;inset:0; width:100%;height:100%; }
+  video{ position:absolute;inset:0; width:100%;height:100%; object-fit:cover; opacity:0.3; }
+  video.hidden{ opacity:0; }
+  canvas#skeleton{ position:absolute;inset:0; width:100%;height:100%; }
+
+  #startOverlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:#000; z-index:60; gap:16px;
+  }
+  #startBtn{
+    font-size:22px; padding:18px 48px; background:transparent; color:var(--green);
+    border:2px solid var(--green); border-radius:10px; cursor:pointer;
+    box-shadow:0 0 18px var(--green); letter-spacing:2px;
+  }
+  #startBtn:hover{ background:rgba(57,255,106,0.12); }
+  #startHint{ position:absolute; bottom:36px; width:100%; text-align:center; color:#2a7a44; font-size:12px; line-height:1.6; padding:0 20px; box-sizing:border-box; }
+  #qualityRow{ display:flex; align-items:center; gap:10px; font-size:13px; color:#2a7a44; }
+  #qualityRow select{ background:#000; color:var(--green); border:1px solid var(--green-dim); border-radius:6px; padding:5px 8px; }
+
+  .panel{
+    background:var(--panel-bg); border:1px solid var(--green-dim); border-radius:10px;
+    padding:10px 14px; font-size:12px; line-height:1.6; backdrop-filter: blur(4px); z-index:20;
+  }
+  .panel h3{ margin:0 0 6px 0; font-size:11px; letter-spacing:1px; opacity:0.75; font-weight:600; }
+  .sub{ font-size:9px; opacity:0.55; margin:-2px 0 6px 0; }
+  .row{ display:flex; justify-content:space-between; gap:10px; align-items:center; }
+  .bar{ background:#06230f; border-radius:4px; height:5px; margin:2px 0 6px 0; overflow:hidden; }
+  .bar>i{ display:block; height:100%; background:var(--green); box-shadow:0 0 5px var(--green); width:0%; }
+  .bar.au>i{ background:#7fffb0; }
+  .en{ opacity:0.55; font-size:9px; }
+  .badge{
+    display:inline-block; padding:4px 10px; border-radius:20px; font-size:11px;
+    border:1px solid var(--green-dim); margin-bottom:8px; transition:.3s;
+  }
+  .badge.duchenne{ background:rgba(255,224,102,0.18); border-color:var(--accent); color:var(--accent); box-shadow:0 0 10px rgba(255,224,102,0.4); }
+  .badge.social{ background:rgba(57,255,106,0.12); }
+
+  #statusPanel{ position:absolute; top:14px; left:14px; width:220px; }
+  #statusPanel .big{ font-size:20px; color:var(--accent); text-shadow:0 0 8px var(--accent); }
+
+  #facsPanel{ position:absolute; top:14px; right:14px; width:260px; max-height:62vh; overflow-y:auto; }
+  #timeline{ position:relative; height:34px; background:#06230f; border-radius:6px; margin-top:6px; overflow:hidden; }
+  .tick{ position:absolute; top:0; bottom:0; width:2px; background:var(--accent); box-shadow:0 0 6px var(--accent); }
+  .tickLabel{ position:absolute; font-size:8px; color:var(--accent); top:0; white-space:nowrap; }
+
+  #bottomStack{ position:absolute; bottom:14px; left:14px; right:14px; display:flex; flex-direction:column; gap:10px; align-items:flex-start; z-index:20; }
+  #sanfenPanel{ align-self:flex-start; }
+  #sanfenChain{ display:flex; align-items:center; gap:4px; margin-top:6px; font-size:12px; }
+  .sfNode{ padding:4px 7px; border:1px solid var(--green-dim); border-radius:6px; transition:.25s; white-space:nowrap; }
+  .sfNode.active{ background:rgba(57,255,106,0.25); box-shadow:0 0 10px var(--green); color:#fff; }
+  .sfArrow{ opacity:0.5; }
+
+  #topRight{ position:absolute; top:14px; right:300px; display:flex; flex-direction:column; align-items:flex-end; gap:8px; z-index:25; }
+  #topRightBtns{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .iconBtn{
+    background:var(--panel-bg); border:1px solid var(--green-dim); color:var(--green);
+    border-radius:8px; padding:7px 10px; font-size:11px; cursor:pointer; white-space:nowrap;
+  }
+  .iconBtn:hover{ background:rgba(57,255,106,0.12); }
+  .iconBtn.active{ box-shadow:0 0 10px var(--green); }
+  #displayToggles{ display:flex; gap:8px; }
+  #displayToggles label{ display:flex; gap:4px; align-items:center; font-size:11px; background:var(--panel-bg); border:1px solid var(--green-dim); border-radius:8px; padding:6px 9px; cursor:pointer; }
+  input[type=checkbox]{ accent-color: var(--green); }
+
+  #midiPanel{
+    background:var(--panel-bg); border:1px solid var(--green-dim); border-radius:10px;
+    padding:10px 14px; font-size:12px; width:220px; display:none;
+  }
+  #midiPanel.show{ display:block; }
+  #midiPanel select{ width:100%; background:#000; color:var(--green); border:1px solid var(--green-dim); border-radius:6px; padding:4px; margin-top:4px; }
+
+  #controls{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; width:100%;
+  }
+  .ctrlGroup{ background:var(--panel-bg); border:1px solid var(--green-dim); border-radius:10px; padding:10px 14px; font-size:11px; min-width:170px; }
+  .ctrlGroup h4{ margin:0 0 6px 0; font-size:10px; letter-spacing:1px; opacity:0.75; }
+  .ctrlGroup label{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0; }
+  input[type=range]{ width:95px; accent-color: var(--green); }
+  .switch{ position:relative; width:32px; height:17px; flex:none; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider-pill{ position:absolute; cursor:pointer; inset:0; background:#1a1a1a; border:1px solid var(--green-dim); border-radius:20px; transition:.2s; }
+  .slider-pill:before{ content:""; position:absolute; height:11px; width:11px; left:2px; top:2px; background:#555; border-radius:50%; transition:.2s; }
+  .switch input:checked + .slider-pill{ background:#0c3a1c; }
+  .switch input:checked + .slider-pill:before{ transform:translateX(15px); background:var(--green); box-shadow:0 0 6px var(--green); }
+
+  #fps{ position:absolute; top:14px; left:50%; transform:translateX(-50%); font-size:11px; color:#2a7a44; z-index:20; }
+  #status{ position:absolute; left:50%; top:62%; transform:translate(-50%,-50%); color:#2a7a44; font-size:14px; z-index:40; text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="stage" class="mirror">
+  <div id="mediaLayer">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="skeleton"></canvas>
+  </div>
+
+  <div id="status"></div>
+  <div id="fps" style="display:none;">FPS —</div>
+
+  <div id="startOverlay">
+    <button id="startBtn">▶ START</button>
+    <div id="qualityRow">
+      <span data-i18n="qualityLabel">识别精度</span>
+      <select id="modelQuality">
+        <option value="lite" data-i18n="qLite">快速</option>
+        <option value="full" selected data-i18n="qFull">标准（默认）</option>
+        <option value="heavy" data-i18n="qHeavy">最高精度</option>
+      </select>
+    </div>
+    <div id="startHint" data-i18n="startHint">点击开始：会请求摄像头权限并开启声音。建议坐在电脑前，上半身、双手、脸都进入画面。</div>
+  </div>
+
+  <!-- 演奏状态面板 -->
+  <div id="statusPanel" class="panel" style="display:none;">
+    <h3 data-i18n="statusTitle">演奏状态 STATUS</h3>
+    <div class="row"><span data-i18n="lblMode">调式</span><span class="big" id="valMode">宫</span></div>
+    <div class="row"><span data-i18n="lblTouchMode">按音/泛音</span><span id="valTouchMode">按音</span></div>
+    <div class="row"><span data-i18n="lblHarmony">和声</span><span id="valHarmony">—</span></div>
+    <div class="row"><span data-i18n="lblHandsSeen">手部检测</span><span id="valHandsSeen">0</span></div>
+    <div class="row"><span data-i18n="lblPan">右手位置→声像</span><span id="valLean">0%</span></div>
+    <div class="row"><span data-i18n="lblVibrato">右手速度→颤音</span><span id="valEnergy">0%</span></div>
+    <div class="row"><span data-i18n="lblVolume">双手距离→音量</span><span id="valVolume">—</span></div>
+  </div>
+
+  <!-- 表情 → 音乐 面板：只保留真正驱动声音的量，且直接显示因果 -->
+  <div id="facsPanel" class="panel" style="display:none;">
+    <h3><span data-i18n="facsTitle">表情 → 音乐</span> <span class="en">(FACS approx.)</span></h3>
+    <div id="smileBadge" class="badge">—</div>
+
+    <div class="row"><span data-i18n="lblBrightness">😊微笑⟷😠皱眉 AU12/4 → 明暗</span><span id="valBrightness">0%</span></div>
+    <div class="bar au"><i id="barBrightness"></i></div>
+    <div class="sub" id="brightnessHint">当前：宫调式 · 滤波 3000Hz</div>
+
+    <div class="row"><span data-i18n="lblReverb">🤨眉头上扬 AU1 → 混响</span><span id="valReverb">0%</span></div>
+    <div class="bar au"><i id="barReverb"></i></div>
+
+    <div class="row"><span data-i18n="lblHarmonyVol">😮张嘴 AU26 → 和声音量</span><span id="valHarmonyVol">0%</span></div>
+    <div class="bar au"><i id="barHarmonyVol"></i></div>
+
+    <div class="sub" style="margin-top:8px;"><span data-i18n="timelineSub">rapid facial change 时间轴（最近5秒，含眨眼/皱眉等快速变化）· 面部检测</span> <span id="faceFps">—</span> fps</div>
+    <div id="timeline"></div>
+    <div class="sub" data-i18n="microexpSub">真正的微表情持续约 1/25–1/5 秒，研究中需 100 fps 以上高速摄像机；普通摄像头只能捕捉较慢的表情变化——时间轴上能看到的多是眨眼这类较明显的快速动作。</div>
+  </div>
+
+  <div id="topRight">
+    <div id="topRightBtns">
+      <button class="iconBtn" id="btnLang">EN</button>
+      <button class="iconBtn" id="btnTenFinger">五声模式 Pentatonic</button>
+      <button class="iconBtn" id="btnCamera">隐藏摄像头 Hide cam</button>
+      <button class="iconBtn" id="btnMute">静音 Mute</button>
+      <button class="iconBtn" id="btnFullscreen" data-i18n="btnFullscreen">全屏 Fullscreen</button>
+      <button class="iconBtn" id="btnMidi" data-i18n="btnMidi">MIDI 输出 Output</button>
+    </div>
+    <div id="displayToggles">
+      <label><input type="checkbox" id="showBody" checked><span data-i18n="toggleBody">身体 Body</span></label>
+      <label><input type="checkbox" id="showHands" checked><span data-i18n="toggleHands">手部 Hands</span></label>
+      <label><input type="checkbox" id="showFace" checked><span data-i18n="toggleFace">面部 Face</span></label>
+    </div>
+    <div id="midiPanel">
+      <div data-i18n="midiTitle">MIDI 输出设备 Output device：</div>
+      <select id="midiSelect"><option value="" data-i18n="midiOff">(未开启)</option></select>
+      <label style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span data-i18n="midiEnableLabel">启用 MIDI 发送 Enable</span>
+        <span class="switch"><input type="checkbox" id="midiEnable"><span class="slider-pill"></span></span>
+      </label>
+    </div>
+  </div>
+
+  <div id="bottomStack">
+    <!-- 三分损益法面板 -->
+    <div id="sanfenPanel" class="panel" style="display:none;">
+      <h3 data-i18n="sanfenTitle">三分损益法 Three-part Loss-and-Gain《管子·地员》</h3>
+      <div id="sanfenChain">
+        <div class="sfNode" data-note="gong"><span data-i18n="sfGong">宫 81</span></div><span class="sfArrow">→</span>
+        <div class="sfNode" data-note="zhi"><span data-i18n="sfZhi">徵 108</span></div><span class="sfArrow">→</span>
+        <div class="sfNode" data-note="shang"><span data-i18n="sfShang">商 72</span></div><span class="sfArrow">→</span>
+        <div class="sfNode" data-note="yu"><span data-i18n="sfYu">羽 96</span></div><span class="sfArrow">→</span>
+        <div class="sfNode" data-note="jue"><span data-i18n="sfJue">角 64</span></div>
+      </div>
+    </div>
+
+  <div id="controls" style="display:none;">
+    <div class="ctrlGroup">
+      <h4 data-i18n="grpTracking">识别 Tracking</h4>
+      <label><span data-i18n="lblVisThresh">过滤阈值 Vis. threshold</span><input type="range" id="visThreshold" min="0.1" max="0.9" step="0.05" value="0.4"></label>
+      <label><span data-i18n="lblFingerSens">手指灵敏度 Finger sens.</span><input type="range" id="fingerSens" min="0.5" max="2" step="0.05" value="1"></label>
+    </div>
+    <div class="ctrlGroup">
+      <h4 data-i18n="grpRhythm">节奏 Rhythm</h4>
+      <label><span data-i18n="lblQuantize">量化 Quantize 8n</span><span class="switch"><input type="checkbox" id="swQuantize" checked><span class="slider-pill"></span></span></label>
+      <label><span data-i18n="lblKick">底鼓 Soft kick</span><span class="switch"><input type="checkbox" id="swKick"><span class="slider-pill"></span></span></label>
+      <label><span>BPM <span id="bpmVal">90</span></span><input type="range" id="bpmSlider" min="60" max="130" step="1" value="90"></label>
+    </div>
+    <div class="ctrlGroup">
+      <h4 data-i18n="grpTeaching">教学可视化 Teaching</h4>
+      <label><span data-i18n="lblHarmonicViz">泛音列 Harmonic series</span><span class="switch"><input type="checkbox" id="swHarmonicViz" checked><span class="slider-pill"></span></span></label>
+      <label><span data-i18n="lblSanfenToggle">三分损益 Sanfen panel</span><span class="switch"><input type="checkbox" id="swSanfen" checked><span class="slider-pill"></span></span></label>
+    </div>
+  </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+
+<script type="module">
+import {
+  PoseLandmarker, HandLandmarker, FaceLandmarker, FilesetResolver
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const Tone = window.Tone;
+const statusEl = document.getElementById('status');
+const video = document.getElementById('video');
+const canvas = document.getElementById('skeleton');
+const ctx = canvas.getContext('2d');
+function setStatus(msg){ statusEl.textContent = msg; }
+
+// ============ DOM refs ============
+const statusPanel = document.getElementById('statusPanel');
+const facsPanel = document.getElementById('facsPanel');
+const sanfenPanel = document.getElementById('sanfenPanel');
+const controls = document.getElementById('controls');
+const fpsEl = document.getElementById('fps');
+const valMode = document.getElementById('valMode');
+const valTouchMode = document.getElementById('valTouchMode');
+const valHarmony = document.getElementById('valHarmony');
+const valHandsSeen = document.getElementById('valHandsSeen');
+const valLean = document.getElementById('valLean');
+const valEnergy = document.getElementById('valEnergy');
+const valVolume = document.getElementById('valVolume');
+const smileBadge = document.getElementById('smileBadge');
+const valBrightness = document.getElementById('valBrightness');
+const barBrightness = document.getElementById('barBrightness');
+const brightnessHint = document.getElementById('brightnessHint');
+const valReverb = document.getElementById('valReverb');
+const barReverb = document.getElementById('barReverb');
+const valHarmonyVol = document.getElementById('valHarmonyVol');
+const barHarmonyVol = document.getElementById('barHarmonyVol');
+const timeline = document.getElementById('timeline');
+const faceFpsEl = document.getElementById('faceFps');
+
+const btnCamera = document.getElementById('btnCamera');
+const btnMute = document.getElementById('btnMute');
+const btnTenFinger = document.getElementById('btnTenFinger');
+const btnFullscreen = document.getElementById('btnFullscreen');
+const btnMidi = document.getElementById('btnMidi');
+const midiPanel = document.getElementById('midiPanel');
+const midiSelect = document.getElementById('midiSelect');
+const midiEnable = document.getElementById('midiEnable');
+const showBody = document.getElementById('showBody');
+const showHands = document.getElementById('showHands');
+const showFace = document.getElementById('showFace');
+const visThreshold = document.getElementById('visThreshold');
+const fingerSens = document.getElementById('fingerSens');
+const swQuantize = document.getElementById('swQuantize');
+const swKick = document.getElementById('swKick');
+const bpmSlider = document.getElementById('bpmSlider');
+const bpmVal = document.getElementById('bpmVal');
+const swHarmonicViz = document.getElementById('swHarmonicViz');
+const swSanfen = document.getElementById('swSanfen');
+const btnLang = document.getElementById('btnLang');
+
+// ================= i18n =================
+const STR = {
+  zh: {
+    qualityLabel:"识别精度", qLite:"快速", qFull:"标准（默认）", qHeavy:"最高精度",
+    startHint:"点击开始：会请求摄像头权限并开启声音。建议坐在电脑前，上半身、双手、脸都进入画面。",
+    statusTitle:"演奏状态 STATUS",
+    lblMode:"调式", lblTouchMode:"按音/泛音", lblHarmony:"和声", lblHandsSeen:"手部检测",
+    lblPan:"右手位置→声像", lblVibrato:"右手速度→颤音", lblVolume:"双手距离→音量",
+    facsTitle:"表情 → 音乐",
+    lblBrightness:"😊微笑⟷😠皱眉 AU12/4 → 明暗", lblReverb:"🤨眉头上扬 AU1 → 混响", lblHarmonyVol:"😮张嘴 AU26 → 和声音量",
+    timelineSub:"rapid facial change 时间轴（最近5秒，含眨眼/皱眉等快速变化）· 面部检测",
+    microexpSub:"真正的微表情持续约 1/25–1/5 秒，研究中需 100 fps 以上高速摄像机；普通摄像头只能捕捉较慢的表情变化——时间轴上能看到的多是眨眼这类较明显的快速动作。",
+    btnCameraShow:"显示摄像头 Show cam", btnCameraHide:"隐藏摄像头 Hide cam",
+    btnMuteOn:"静音 Mute", btnMuteOff:"取消静音 Unmute",
+    btnTenFingerOff:"五声模式 Pentatonic", btnTenFingerOn:"十指七声模式 Ten-Finger",
+    btnFullscreen:"全屏 Fullscreen", btnMidi:"MIDI 输出 Output",
+    toggleBody:"身体 Body", toggleHands:"手部 Hands", toggleFace:"面部 Face",
+    midiTitle:"MIDI 输出设备 Output device：", midiOff:"(未开启)", midiEnableLabel:"启用 MIDI 发送 Enable",
+    midiNoSupport:"(浏览器不支持 Web MIDI)", midiDenied:"(MIDI 权限被拒绝)", midiNone:"(未找到输出，需先启用 IAC Driver)",
+    sanfenTitle:"三分损益法 Three-part Loss-and-Gain《管子·地员》",
+    sfGong:"宫 81", sfZhi:"徵 108", sfShang:"商 72", sfYu:"羽 96", sfJue:"角 64",
+    grpTracking:"识别 Tracking", grpRhythm:"节奏 Rhythm", grpTeaching:"教学可视化 Teaching",
+    lblVisThresh:"过滤阈值 Vis. threshold", lblFingerSens:"手指灵敏度 Finger sens.",
+    lblQuantize:"量化 Quantize 8n", lblKick:"底鼓 Soft kick",
+    lblHarmonicViz:"泛音列 Harmonic series", lblSanfenToggle:"三分损益 Sanfen panel",
+    touchModeTouch:"按音", touchModeHarmonic:"泛音",
+    modeGong:"宫 Gong", modeYu:"羽 Yu",
+    brightnessHint:(mode,freq)=>`当前：${mode}调式 · 滤波 ${freq}Hz`,
+    badgeSocial:"social smile（仅 AU12）", badgeDuchenne:"Duchenne smile（AU12+AU6，真笑）", badgeNeutral:"表情中性 neutral",
+    statusLoadingPose:"正在加载姿态模型 loading pose model…", statusLoadingHand:"正在加载手部模型 loading hand model…",
+    statusLoadingFace:"正在加载面部模型 loading face model…", statusRequestingCamera:"请求摄像头权限…",
+    statusErrorPrefix:"出错: ", statusErrorSuffix:"（请检查摄像头权限）",
+  },
+  en: {
+    qualityLabel:"Pose quality", qLite:"Fast", qFull:"Standard (default)", qHeavy:"Max accuracy",
+    startHint:"Click start: requests camera access and enables sound. Sit at your desk with upper body, both hands and face in frame.",
+    statusTitle:"STATUS",
+    lblMode:"Mode", lblTouchMode:"Touch/Harmonic", lblHarmony:"Harmony", lblHandsSeen:"Hands detected",
+    lblPan:"Hand X → Pan", lblVibrato:"Hand speed → Vibrato", lblVolume:"Hand distance → Volume",
+    facsTitle:"Face → Sound",
+    lblBrightness:"😊Smile⟷😠Frown AU12/4 → Brightness", lblReverb:"🤨Brow raise AU1 → Reverb", lblHarmonyVol:"😮Jaw open AU26 → Harmony vol",
+    timelineSub:"rapid facial change timeline (last 5s) · face detection",
+    microexpSub:"Real microexpressions last about 1/25–1/5s and need 100fps+ cameras to study properly; a normal webcam only catches slower changes — what you see here is mostly blinks and similar fast but ordinary motions.",
+    btnCameraShow:"Show cam", btnCameraHide:"Hide cam",
+    btnMuteOn:"Mute", btnMuteOff:"Unmute",
+    btnTenFingerOff:"Pentatonic mode", btnTenFingerOn:"Ten-Finger mode",
+    btnFullscreen:"Fullscreen", btnMidi:"MIDI Output",
+    toggleBody:"Body", toggleHands:"Hands", toggleFace:"Face",
+    midiTitle:"MIDI output device:", midiOff:"(not enabled)", midiEnableLabel:"Enable MIDI send",
+    midiNoSupport:"(Web MIDI not supported)", midiDenied:"(MIDI permission denied)", midiNone:"(no output found — enable IAC Driver)",
+    sanfenTitle:"Three-part Loss-and-Gain (Guanzi · Diyuan)",
+    sfGong:"Gong 81", sfZhi:"Zhi 108", sfShang:"Shang 72", sfYu:"Yu 96", sfJue:"Jue 64",
+    grpTracking:"Tracking", grpRhythm:"Rhythm", grpTeaching:"Teaching visuals",
+    lblVisThresh:"Vis. threshold", lblFingerSens:"Finger sensitivity",
+    lblQuantize:"Quantize 8n", lblKick:"Soft kick",
+    lblHarmonicViz:"Harmonic series", lblSanfenToggle:"Sanfen panel",
+    touchModeTouch:"Touch", touchModeHarmonic:"Harmonic",
+    modeGong:"Gong 宫", modeYu:"Yu 羽",
+    brightnessHint:(mode,freq)=>`Now: ${mode} mode · filter ${freq}Hz`,
+    badgeSocial:"social smile (AU12 only)", badgeDuchenne:"Duchenne smile (AU12+AU6, genuine)", badgeNeutral:"neutral",
+    statusLoadingPose:"Loading pose model…", statusLoadingHand:"Loading hand model…",
+    statusLoadingFace:"Loading face model…", statusRequestingCamera:"Requesting camera access…",
+    statusErrorPrefix:"Error: ", statusErrorSuffix:" (check camera permission)",
+  }
+};
+let lang = 'zh';
+function t(key){ const v = STR[lang][key]; return v===undefined ? key : v; }
+function applyLang(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const v = t(el.getAttribute('data-i18n'));
+    if (typeof v === 'string') el.textContent = v;
+  });
+  btnCamera.textContent = video.classList.contains('hidden') ? t('btnCameraShow') : t('btnCameraHide');
+  btnMute.textContent = masterMuted ? t('btnMuteOff') : t('btnMuteOn');
+  btnTenFinger.textContent = tenFingerMode ? t('btnTenFingerOn') : t('btnTenFingerOff');
+  btnLang.textContent = lang === 'zh' ? 'EN' : '中';
+  document.documentElement.lang = lang;
+}
+btnLang.addEventListener('click', ()=>{
+  lang = (lang === 'zh') ? 'en' : 'zh';
+  applyLang();
+});
+
+// ================= AUDIO GRAPH =================
+let masterMuted = false;
+// hand distance -> overall volume
+const masterGain = new Tone.Gain(0.8).toDestination();
+const masterReverb = new Tone.JCReverb(0.4).connect(masterGain);
+masterReverb.wet.value = 0.25;
+// right-hand x position -> pan, right-hand movement speed -> vibrato depth
+const bodyPanner = new Tone.Panner(0).connect(masterReverb);
+const bodyVibrato = new Tone.Vibrato(5, 0).connect(bodyPanner);
+const melodyFilter = new Tone.Filter(3000, "lowpass").connect(bodyVibrato);
+const harmonyFilter = new Tone.Filter(1800, "lowpass").connect(bodyVibrato);
+const harmonyGain = new Tone.Gain(0.45).connect(harmonyFilter);
+
+const PLUCK_VOICES = 6;
+const pluckPool = [];
+for (let i=0;i<PLUCK_VOICES;i++){
+  pluckPool.push(new Tone.PluckSynth({ attackNoise:1, dampening:3200, resonance:0.95 }).connect(melodyFilter));
+}
+let pluckIdx = 0;
+function playPluck(midi){
+  const v = pluckPool[pluckIdx]; pluckIdx = (pluckIdx+1) % PLUCK_VOICES;
+  v.triggerAttack(Tone.Frequency(midi, "midi").toFrequency());
+}
+
+const overtoneSynth = new Tone.PolySynth(Tone.Synth, {
+  oscillator:{ type:"sine" }, envelope:{ attack:0.08, decay:0.3, sustain:0.4, release:1.4 }
+}).connect(melodyFilter);
+overtoneSynth.volume.value = -8;
+
+const harmonySynth = new Tone.PolySynth(Tone.Synth, {
+  oscillator:{ type:"sine" }, envelope:{ attack:0.4, decay:0.3, sustain:0.8, release:1.8 }
+}).connect(harmonyGain);
+
+const kick = new Tone.MembraneSynth({ pitchDecay:0.04, octaves:3, envelope:{attack:0.001,decay:0.3,sustain:0} }).connect(masterGain);
+kick.volume.value = -14;
+
+Tone.Transport.bpm.value = 90;
+let lastGridTime = 0; // most recent 8th-note grid point, used for "nearest" quantization below
+Tone.Transport.scheduleRepeat((time)=>{
+  lastGridTime = time;
+  if (swKick.checked && !masterMuted) kick.triggerAttackRelease("C1", "8n", time);
+}, "8n");
+
+bpmSlider.addEventListener('input', ()=>{
+  Tone.Transport.bpm.value = parseFloat(bpmSlider.value);
+  bpmVal.textContent = bpmSlider.value;
+});
+
+// pentatonic: 宫C 商D 角E 徵G 羽A
+// chain = [base joint, mid joint, tip] used for orientation-independent curl detection
+const FINGER_DEF = [
+  { id:'thumb',  zh:'宫', en:'Gong',  tip:4,  pip:3,  isThumb:true,  semitone:0 },
+  { id:'index',  zh:'商', en:'Shang', tip:8,  pip:6,  chain:[5,6,8],   semitone:2 },
+  { id:'middle', zh:'角', en:'Jue',   tip:12, pip:10, chain:[9,10,12], semitone:4 },
+  { id:'ring',   zh:'徵', en:'Zhi',   tip:16, pip:14, chain:[13,14,16],semitone:7 },
+  { id:'pinky',  zh:'羽', en:'Yu',    tip:20, pip:18, chain:[17,18,20],semitone:9 },
+];
+const MELODY_ROOT = 60; // C4
+
+const HARMONY_TIERS = [
+  { notes:[48,55], zh:'宫+徵' },
+  { notes:[50,57], zh:'商+羽' },
+  { notes:[55,50], zh:'徵+商' },
+  { notes:[57,64], zh:'羽+角' },
+];
+let currentHarmonyTier = -1;
+let heldHarmonyNotes = [];
+
+function setHarmonyTier(tierIndex){
+  if (tierIndex === currentHarmonyTier) return;
+  if (heldHarmonyNotes.length){
+    harmonySynth.triggerRelease(heldHarmonyNotes.map(m=>Tone.Frequency(m,"midi").toFrequency()));
+    heldHarmonyNotes.forEach(m=>sendNoteOff(m));
+    heldHarmonyNotes = [];
+  }
+  currentHarmonyTier = tierIndex;
+  if (tierIndex >= 0){
+    const tier = HARMONY_TIERS[tierIndex];
+    const freqs = tier.notes.map(m=>Tone.Frequency(m,"midi").toFrequency());
+    if (!masterMuted) harmonySynth.triggerAttack(freqs);
+    heldHarmonyNotes = tier.notes.slice();
+    heldHarmonyNotes.forEach(m=>sendNoteOn(m,70));
+    valHarmony.textContent = tier.zh;
+  } else {
+    valHarmony.textContent = '—';
+  }
+}
+
+// ================= MIDI =================
+let midiOutput = null, midiAccess = null;
+const MIDI_CHANNEL = 0;
+async function initMidi(){
+  if (!navigator.requestMIDIAccess){ midiSelect.innerHTML = `<option value="">${t('midiNoSupport')}</option>`; return; }
+  try{
+    midiAccess = await navigator.requestMIDIAccess();
+    refreshMidiOutputs();
+    midiAccess.onstatechange = refreshMidiOutputs;
+  }catch(e){ midiSelect.innerHTML = `<option value="">${t('midiDenied')}</option>`; }
+}
+function refreshMidiOutputs(){
+  midiSelect.innerHTML = '';
+  const outputs = Array.from(midiAccess.outputs.values());
+  if (outputs.length === 0){ midiSelect.innerHTML = `<option value="">${t('midiNone')}</option>`; midiOutput=null; return; }
+  outputs.forEach(o=>{ const opt=document.createElement('option'); opt.value=o.id; opt.textContent=o.name; midiSelect.appendChild(opt); });
+  midiOutput = outputs[0];
+}
+midiSelect.addEventListener('change', ()=>{
+  const o = Array.from(midiAccess?.outputs.values()||[]).find(x=>x.id===midiSelect.value);
+  midiOutput = o || null;
+});
+function sendNoteOn(note, vel){ if (!midiEnable.checked || !midiOutput) return; midiOutput.send([0x90|MIDI_CHANNEL, note, vel]); }
+function sendNoteOff(note){ if (!midiEnable.checked || !midiOutput) return; midiOutput.send([0x80|MIDI_CHANNEL, note, 0]); }
+function sendPulse(note, vel){ sendNoteOn(note, vel); setTimeout(()=>sendNoteOff(note), 150); }
+
+// ================= TRACKING MODELS =================
+let poseLandmarker=null, handLandmarker=null, faceLandmarker=null, visionFileset=null;
+let lastVideoTime = -1;
+
+const POSE_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,7],[0,4],[4,5],[5,6],[6,8],[9,10],
+  [11,12],[11,13],[13,15],[12,14],[14,16],
+  [11,23],[12,24],[23,24],
+  [23,25],[25,27],[27,29],[27,31],[29,31],
+  [24,26],[26,28],[28,30],[28,32],[30,32]
+];
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],
+  [0,17]
+];
+const HAND_TIPS = new Set([4,8,12,16,20]);
+// Reduced face contour set (eyes/brows/lips/oval) — background mesh layer, not full 478-pt tesselation
+const FACE_OVAL = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109,10];
+const FACE_LEFT_EYE = [33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246,33];
+const FACE_RIGHT_EYE = [263,249,390,373,374,380,381,382,362,398,384,385,386,387,388,466,263];
+const FACE_LEFT_BROW = [70,63,105,66,107,55,65,52,53,46];
+const FACE_RIGHT_BROW = [300,293,334,296,336,285,295,282,283,276];
+const FACE_LIPS = [61,146,91,181,84,17,314,405,321,375,291,61];
+function loopConnections(arr){ const c=[]; for(let i=0;i<arr.length-1;i++) c.push([arr[i],arr[i+1]]); return c; }
+const FACE_CONNECTIONS = [
+  ...loopConnections(FACE_OVAL), ...loopConnections(FACE_LEFT_EYE), ...loopConnections(FACE_RIGHT_EYE),
+  ...loopConnections(FACE_LEFT_BROW), ...loopConnections(FACE_RIGHT_BROW), ...loopConnections(FACE_LIPS)
+];
+
+function visible(p){ return !!p && (p.visibility === undefined || p.visibility >= parseFloat(visThreshold.value)); }
+
+async function createPoseLandmarker(quality){
+  setStatus(t('statusLoadingPose'));
+  visionFileset = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const modelUrl = `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${quality}/float16/1/pose_landmarker_${quality}.task`;
+  const opts = { baseOptions:{ modelAssetPath:modelUrl, delegate:"GPU" }, runningMode:"VIDEO", numPoses:1,
+    minPoseDetectionConfidence:0.5, minPosePresenceConfidence:0.5, minTrackingConfidence:0.5 };
+  try{ poseLandmarker = await PoseLandmarker.createFromOptions(visionFileset, opts); }
+  catch(e){ opts.baseOptions.delegate="CPU"; poseLandmarker = await PoseLandmarker.createFromOptions(visionFileset, opts); }
+}
+async function createHandLandmarker(){
+  setStatus(t('statusLoadingHand'));
+  const modelUrl = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+  const opts = { baseOptions:{ modelAssetPath:modelUrl, delegate:"GPU" }, runningMode:"VIDEO", numHands:2,
+    minHandDetectionConfidence:0.5, minHandPresenceConfidence:0.5, minTrackingConfidence:0.5 };
+  try{ handLandmarker = await HandLandmarker.createFromOptions(visionFileset, opts); }
+  catch(e){ opts.baseOptions.delegate="CPU"; handLandmarker = await HandLandmarker.createFromOptions(visionFileset, opts); }
+}
+async function createFaceLandmarker(){
+  setStatus(t('statusLoadingFace'));
+  const modelUrl = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+  const opts = { baseOptions:{ modelAssetPath:modelUrl, delegate:"GPU" }, runningMode:"VIDEO", numFaces:1,
+    outputFaceBlendshapes:true, outputFacialTransformationMatrixes:false };
+  try{ faceLandmarker = await FaceLandmarker.createFromOptions(visionFileset, opts); }
+  catch(e){ opts.baseOptions.delegate="CPU"; faceLandmarker = await FaceLandmarker.createFromOptions(visionFileset, opts); }
+}
+
+function resizeCanvas(){ canvas.width = video.videoWidth || window.innerWidth; canvas.height = video.videoHeight || window.innerHeight; }
+
+// ================= SMOOTHING helpers =================
+function smoothLM(store, raw, alpha){
+  if (!store || store.length !== raw.length) return raw.map(p=>({...p}));
+  for (let i=0;i<raw.length;i++){
+    store[i].x += (raw[i].x - store[i].x) * (1-alpha);
+    store[i].y += (raw[i].y - store[i].y) * (1-alpha);
+    store[i].z = raw[i].z; store[i].visibility = raw[i].visibility;
+  }
+  return store;
+}
+let poseSmoothed = null;
+const handSmoothed = [null, null];
+
+// ================= DRAWING =================
+function drawGlow(connections, points, dotRadius, opts={}){
+  ctx.save();
+  ctx.shadowColor = opts.color || "#39ff6a";
+  ctx.shadowBlur = opts.blur ?? 14;
+  ctx.strokeStyle = opts.color || "#39ff6a";
+  ctx.fillStyle = opts.color || "#39ff6a";
+  ctx.globalAlpha = opts.alpha ?? 1;
+  ctx.lineWidth = opts.lineWidth ?? 3;
+  ctx.beginPath();
+  for (const [a,b] of connections){
+    const pa=points[a], pb=points[b];
+    if (!pa || !pb || (opts.checkVisible && !visible(pa)) || (opts.checkVisible && !visible(pb))) continue;
+    ctx.moveTo(pa.x*canvas.width, pa.y*canvas.height);
+    ctx.lineTo(pb.x*canvas.width, pb.y*canvas.height);
+  }
+  ctx.stroke();
+  if (opts.dots !== false){
+    const ids = opts.dotIds || [...new Set(connections.flat())];
+    for (const id of ids){
+      const p = points[id];
+      if (!p || (opts.checkVisible && !visible(p))) continue;
+      const r = (opts.bigTips && HAND_TIPS.has(id)) ? dotRadius*1.6 : dotRadius;
+      ctx.beginPath();
+      ctx.arc(p.x*canvas.width, p.y*canvas.height, r, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawFingerLabel(point, text, active){
+  ctx.save();
+  ctx.translate(point.x*canvas.width, point.y*canvas.height - 18);
+  ctx.scale(-1,1); // un-mirror text so it reads correctly on mirrored stage
+  ctx.font = active ? "bold 26px -apple-system, sans-serif" : "15px -apple-system, sans-serif";
+  ctx.fillStyle = active ? "#ffe066" : "#39ff6a";
+  if (active){ ctx.shadowColor = "#ffe066"; ctx.shadowBlur = 22; } // skip the (costly) shadow blur when idle — 5 of these run every frame
+  ctx.textAlign = "center";
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
+}
+
+// ================= HAND STATE =================
+function physicalHand(categoryName){ return categoryName; } // confirmed by live testing: raw label already matches the physical hand, no swap needed
+
+const fingerState = FINGER_DEF.map(()=>({ bent:false, lastTrigger:0, flashUntil:0 }));
+const TRIGGER_COOLDOWN = 180;
+// curl ratio = straight-line(base→tip) / path-length(base→mid→tip).
+// 1.0 = fully extended, drops toward ~0.5 when curled. Orientation-independent
+// (works no matter how the hand is rotated/tilted toward the camera), unlike
+// a simple "tip.y below pip.y" check which only works when fingers point up.
+function curlRatio(lm, chain){
+  let pathLen = 0;
+  for (let i=0;i<chain.length-1;i++){
+    const a=lm[chain[i]], b=lm[chain[i+1]];
+    pathLen += Math.hypot(a.x-b.x, a.y-b.y, (a.z||0)-(b.z||0));
+  }
+  if (pathLen <= 0) return 1;
+  const a0=lm[chain[0]], aN=lm[chain[chain.length-1]];
+  const straight = Math.hypot(a0.x-aN.x, a0.y-aN.y, (a0.z||0)-(aN.z||0));
+  return straight / pathLen;
+}
+
+let touchMode = 'touch'; // 'touch' | 'harmonic'
+let pinchState = false;
+// pinch distance is normalized by hand scale (wrist→middle-MCP span) so it
+// works consistently whether the hand is close to or far from the camera
+const PINCH_ON = 0.35, PINCH_OFF = 0.55;
+
+function handScale(lm){ return Math.max(0.0001, Math.hypot(lm[0].x-lm[9].x, lm[0].y-lm[9].y)); }
+
+const harmonicEvents = []; // {freq, t}
+
+// thumb uses opposition distance (tip → index-MCP) instead of curl ratio:
+// the thumb bends mostly by rotating across the palm, not by flexing like
+// the other four fingers, so a curl-ratio along its own chain barely changes.
+const THUMB_BEND_MARGIN = 0.02, THUMB_HYSTERESIS = 0.012;
+
+// Shared bend-detection loop: identical trigger/cooldown/hysteresis logic is
+// used for every finger in both Five-Tone mode (right hand only) and
+// Ten-Finger mode (both hands) — only the note mapping and label differ.
+function processHandFingers(lm, fingerDefs, states, now, onTrigger, onLabel){
+  const sensVal = parseFloat(fingerSens.value);
+  const sensShift = (sensVal - 1) * 0.12;
+
+  for (let i=0;i<fingerDefs.length;i++){
+    const f = fingerDefs[i];
+    const tip = lm[f.tip];
+    if (!tip) continue;
+    let isBent, isReleased;
+    if (f.isThumb){
+      // back to the simple "tip below 2nd joint" check for the thumb — the
+      // orientation-independent curl/opposition methods tried here turned
+      // out less reliable in practice for this finger's motion.
+      const bendAmount = (tip.y - lm[f.pip].y) * sensVal;
+      isBent = bendAmount > THUMB_BEND_MARGIN;
+      isReleased = bendAmount < THUMB_BEND_MARGIN - THUMB_HYSTERESIS;
+    } else {
+      const ratio = curlRatio(lm, f.chain);
+      const onThresh = 0.74 + sensShift, offThresh = 0.84 + sensShift;
+      isBent = ratio < onThresh;
+      isReleased = ratio > offThresh;
+    }
+    const st = states[i];
+    if (!st.bent && isBent && (now-st.lastTrigger) > TRIGGER_COOLDOWN){
+      st.bent = true; st.lastTrigger = now; st.flashUntil = now + 260;
+      onTrigger(f, now);
+    } else if (st.bent && isReleased){
+      st.bent = false;
+    }
+    onLabel(f, tip, now < st.flashUntil);
+  }
+}
+
+function processRightHand(lm, now){
+  processHandFingers(lm, FINGER_DEF, fingerState, now, triggerMelodyNote,
+    (f, tip, active) => drawFingerLabel(tip, f.zh, active));
+}
+
+// shared quantize scheduling: both Five-Tone and Ten-Finger notes snap to the
+// same beat grid the same way
+function scheduleQuantized(playFn){
+  if (swQuantize.checked){
+    // snap to the NEAREST 8th-note grid point, not always the next one:
+    // if we're still close to the beat we just passed, play right away
+    // instead of waiting up to a full 8th-note for the next one.
+    const stepDur = Tone.Time("8n").toSeconds();
+    const sinceGrid = Tone.now() - lastGridTime; // both in AudioContext time, unlike Transport.seconds
+    if (sinceGrid >= 0 && sinceGrid <= stepDur/2){
+      playFn();
+    } else {
+      const time = Tone.Transport.nextSubdivision("8n");
+      Tone.Transport.scheduleOnce(()=>playFn(), time);
+    }
+  } else {
+    playFn();
+  }
+}
+
+function triggerMelodyNote(f, now){
+  let midi = MELODY_ROOT + f.semitone;
+  const useOvertone = touchMode === 'harmonic';
+  if (useOvertone) midi += 12;
+
+  scheduleQuantized(()=>{
+    if (!masterMuted){
+      if (useOvertone) overtoneSynth.triggerAttackRelease(Tone.Frequency(midi,"midi").toFrequency(), 1.8);
+      else playPluck(midi);
+    }
+    sendPulse(midi, 95);
+    harmonicEvents.push({ freq: Tone.Frequency(midi,"midi").toFrequency(), t: performance.now() });
+    flashSanfenNode(SANFEN_MAP[f.id]);
+  });
+}
+
+const SANFEN_MAP = { thumb:'gong', ring:'zhi', index:'shang', pinky:'yu', middle:'jue' };
+function flashSanfenNode(key){
+  if (!key) return;
+  document.querySelectorAll('.sfNode').forEach(n=>n.classList.remove('active'));
+  const node = document.querySelector(`.sfNode[data-note="${key}"]`);
+  if (node){ node.classList.add('active'); setTimeout(()=>node.classList.remove('active'), 650); }
+}
+
+// ================= TEN-FINGER MODE (十指七声模式) =================
+// Piano-like layout, left→right from the performer's own (mirrored) view,
+// low→high: left hand pinky..thumb = do re mi fa sol (C4..G4), right hand
+// thumb..pinky = la si do' re' mi' (A4..E5). Same bend-trigger mechanics as
+// Five-Tone mode (shared via processHandFingers/scheduleQuantized above).
+let tenFingerMode = false;
+const TEN_LEFT_DEF = [
+  { id:'L5', solfege:'do',  zh:'宫',   tip:20, pip:18, chain:[17,18,20], midi:60, sanfenKey:'gong'  },
+  { id:'L4', solfege:'re',  zh:'商',   tip:16, pip:14, chain:[13,14,16], midi:62, sanfenKey:'shang' },
+  { id:'L3', solfege:'mi',  zh:'角',   tip:12, pip:10, chain:[9,10,12],  midi:64, sanfenKey:'jue'   },
+  { id:'L2', solfege:'fa',  zh:'清角', tip:8,  pip:6,  chain:[5,6,8],    midi:65, sanfenKey:null, gold:true },
+  { id:'L1', solfege:'sol', zh:'徵',   tip:4,  pip:3,  isThumb:true,     midi:67, sanfenKey:'zhi'   },
+];
+const TEN_RIGHT_DEF = [
+  { id:'R1', solfege:'la',   zh:'羽',   tip:4,  pip:3,  isThumb:true,     midi:69, sanfenKey:'yu'   },
+  { id:'R2', solfege:'si',   zh:'变宫', tip:8,  pip:6,  chain:[5,6,8],    midi:71, sanfenKey:null, gold:true },
+  { id:'R3', solfege:"do'",  zh:'高宫', tip:12, pip:10, chain:[9,10,12],  midi:72, sanfenKey:'gong' },
+  { id:'R4', solfege:"re'",  zh:'高商', tip:16, pip:14, chain:[13,14,16], midi:74, sanfenKey:'shang'},
+  { id:'R5', solfege:"mi'",  zh:'高角', tip:20, pip:18, chain:[17,18,20], midi:76, sanfenKey:'jue'  },
+];
+const tenLeftState = TEN_LEFT_DEF.map(()=>({ bent:false, lastTrigger:0, flashUntil:0 }));
+const tenRightState = TEN_RIGHT_DEF.map(()=>({ bent:false, lastTrigger:0, flashUntil:0 }));
+
+function drawTenFingerLabel(point, solfege, zh, active, gold){
+  ctx.save();
+  ctx.translate(point.x*canvas.width, point.y*canvas.height - 26);
+  ctx.scale(-1,1); // un-mirror text so it reads correctly on the mirrored stage
+  const color = active ? "#ffe066" : (gold ? "#e8c97a" : "#39ff6a");
+  ctx.fillStyle = color;
+  if (active){ ctx.shadowColor = "#ffe066"; ctx.shadowBlur = 22; }
+  ctx.textAlign = "center";
+  ctx.font = active ? "bold 17px -apple-system, sans-serif" : "12px -apple-system, sans-serif";
+  ctx.fillText(solfege, 0, 0);
+  ctx.font = active ? "bold 13px -apple-system, sans-serif" : "10px -apple-system, sans-serif";
+  ctx.fillText(zh, 0, active ? 17 : 13);
+  ctx.restore();
+}
+
+function triggerTenFingerNote(f, now){
+  scheduleQuantized(()=>{
+    if (!masterMuted) playPluck(f.midi);
+    sendPulse(f.midi, 95);
+    harmonicEvents.push({ freq: Tone.Frequency(f.midi,"midi").toFrequency(), t: performance.now() });
+    flashSanfenNode(f.sanfenKey);
+  });
+}
+
+function processTenFingerHand(lm, defs, states, now){
+  processHandFingers(lm, defs, states, now, triggerTenFingerNote,
+    (f, tip, active) => drawTenFingerLabel(tip, f.solfege, f.zh, active, f.gold));
+}
+
+// adaptive vertical range: expands instantly to new extremes, relaxes slowly
+// otherwise — so the 4 harmony tiers always span whatever height range the
+// user actually moves their hand through, instead of the full 0..1 frame
+// (which is unreachable while sitting at a desk).
+let leftYMin = 0.5, leftYMax = 0.5, leftRangeInit = false;
+
+function processLeftHand(lm, now){
+  const wrist = lm[0];
+  if (!leftRangeInit){ leftYMin = wrist.y - 0.1; leftYMax = wrist.y + 0.1; leftRangeInit = true; }
+  if (wrist.y < leftYMin) leftYMin = wrist.y; else leftYMin += (wrist.y - leftYMin) * 0.004;
+  if (wrist.y > leftYMax) leftYMax = wrist.y; else leftYMax += (wrist.y - leftYMax) * 0.004;
+  const range = Math.max(0.08, leftYMax - leftYMin);
+  const t = Math.max(0, Math.min(0.999, (leftYMax - wrist.y) / range));
+  const tier = Math.floor(t * 4);
+
+  // fist detection: index/middle/ring/pinky all curled (orientation-independent)
+  let bentCount = 0;
+  [[5,6,8],[9,10,12],[13,14,16],[17,18,20]].forEach(chain=>{
+    if (curlRatio(lm, chain) < 0.8) bentCount++;
+  });
+  const isFist = bentCount >= 4;
+  setHarmonyTier(isFist ? -1 : tier);
+
+  // pinch (thumb tip 4, index tip 8), normalized by hand scale so it
+  // triggers reliably regardless of distance from the camera
+  const thumbTip = lm[4], indexTip = lm[8];
+  if (thumbTip && indexTip){
+    const d = Math.hypot(thumbTip.x-indexTip.x, thumbTip.y-indexTip.y) / handScale(lm);
+    const wasPinch = pinchState;
+    if (!pinchState && d < PINCH_ON) pinchState = true;
+    else if (pinchState && d > PINCH_OFF) pinchState = false;
+    if (pinchState !== wasPinch) onTouchModeChange(pinchState, thumbTip, indexTip);
+  }
+  touchMode = pinchState ? 'harmonic' : 'touch';
+  valTouchMode.textContent = pinchState ? t('touchModeHarmonic') : t('touchModeTouch');
+
+  if (pinchState && thumbTip && indexTip){
+    const mx = (thumbTip.x+indexTip.x)/2 * canvas.width, my = (thumbTip.y+indexTip.y)/2 * canvas.height;
+    ctx.save();
+    ctx.strokeStyle = "#fff6c0"; ctx.shadowColor = "#fff6c0"; ctx.shadowBlur = 16; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(mx, my, 14, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function onTouchModeChange(isHarmonic, thumbTip, indexTip){
+  if (masterMuted) return;
+  const chime = new Tone.Synth({ oscillator:{type:'sine'}, envelope:{attack:0.01,decay:0.3,sustain:0,release:0.3} }).connect(masterReverb);
+  chime.volume.value = -10;
+  chime.triggerAttackRelease(isHarmonic ? "C6" : "C5", 0.15);
+  setTimeout(()=>chime.dispose(), 1000);
+}
+
+// ================= TWO-HAND CONTROL: pan, vibrato, volume =================
+// Replaces the earlier "lean your torso" / "move your whole body" mappings —
+// impractical while your hands are busy playing. These instead piggyback on
+// hand motion that already happens naturally during performance:
+//   - right hand's left/right position in frame -> stereo pan
+//   - right hand's movement speed (how actively you're playing) -> vibrato
+//   - distance between the two hands -> overall volume (arms apart = louder)
+let handSmoothPan = 0, handSmoothSpeed = 0, handSmoothVol = 0.8;
+const rightHandPrevPos = {};
+
+function trackRightHandSpeed(lm, now){
+  // average speed of a few key right-hand points (wrist + fingertips)
+  const ids = [0,4,8,12,16,20];
+  const speeds = [];
+  for (const id of ids){
+    const p = lm[id];
+    const prev = rightHandPrevPos[id];
+    rightHandPrevPos[id] = { x:p.x, y:p.y, t:now };
+    if (prev){
+      const dt = (now - prev.t)/1000;
+      if (dt > 0) speeds.push(Math.hypot(p.x-prev.x, p.y-prev.y)/dt);
+    }
+  }
+  return speeds.length ? speeds.reduce((a,b)=>a+b,0)/speeds.length : 0;
+}
+
+function processTwoHands(rightLm, leftLm, now){
+  if (rightLm){
+    // x position across frame -> pan (0..1 -> -1..1)
+    const panTarget = (rightLm[0].x - 0.5) * 2;
+    handSmoothPan += (panTarget - handSmoothPan) * 0.1;
+    bodyPanner.pan.rampTo(Math.max(-1, Math.min(1, handSmoothPan)), 0.15);
+    valLean.textContent = Math.round(handSmoothPan*100) + '%';
+
+    const speed = trackRightHandSpeed(rightLm, now);
+    handSmoothSpeed += (Math.min(1, speed/1.5) - handSmoothSpeed) * 0.12;
+    bodyVibrato.depth.rampTo(handSmoothSpeed * 0.5, 0.2);
+    valEnergy.textContent = Math.round(handSmoothSpeed*100) + '%';
+  }
+
+  if (rightLm && leftLm){
+    const scale = (handScale(rightLm) + handScale(leftLm)) / 2;
+    const dist = Math.hypot(rightLm[0].x-leftLm[0].x, rightLm[0].y-leftLm[0].y) / scale;
+    const volTarget = Math.max(0.15, Math.min(1.3, dist / 4));
+    handSmoothVol += (volTarget - handSmoothVol) * 0.1;
+    masterGain.gain.rampTo(handSmoothVol, 0.15);
+    valVolume.textContent = Math.round(Math.min(1, handSmoothVol/1.3)*100) + '%';
+  }
+}
+
+// ================= FACE / FACS =================
+const AU_LIST = [
+  { key:'mouthSmileLeft',  pair:'mouthSmileRight',  zh:'嘴角上扬', en:'Lip Corner Puller', au:'AU12' },
+  { key:'cheekSquintLeft', pair:'cheekSquintRight', zh:'脸颊上提', en:'Cheek Raiser',      au:'AU6'  },
+  { key:'browDownLeft',    pair:'browDownRight',    zh:'皱眉',     en:'Brow Lowerer',      au:'AU4'  },
+  { key:'browInnerUp',     pair:null,                zh:'眉头上扬', en:'Inner Brow Raiser', au:'AU1'  },
+  { key:'jawOpen',         pair:null,                zh:'张嘴',     en:'Jaw Drop',          au:'AU26' },
+  { key:'eyeBlinkLeft',    pair:'eyeBlinkRight',    zh:'眨眼',     en:'Blink',             au:'AU45' },
+];
+const blendSmoothed = {};
+const blendHistory = {}; // key -> {rising:false, startT:0, lastEvent:0}
+AU_LIST.forEach(a=>{ blendSmoothed[a.key]=0; blendHistory[a.key]={rising:false,startT:0,lastEvent:0,baseline:0}; if(a.pair) blendSmoothed[a.pair]=0; });
+
+let modeLabel = '宫';
+let modeBrightness = 0; // smoothed smile-frown, -1..1
+const events = []; // {t, au, label}
+
+function processFace(blendshapeCategories, now){
+  const map = {};
+  for (const c of blendshapeCategories) map[c.categoryName] = c.score;
+
+  AU_LIST.forEach(a=>{
+    const raw = a.pair ? ((map[a.key]||0) + (map[a.pair]||0))/2 : (map[a.key]||0);
+    blendSmoothed[a.key] = blendSmoothed[a.key] + (raw - blendSmoothed[a.key]) * 0.35;
+    const val = blendSmoothed[a.key];
+
+    // rapid change detection — tracked for every AU (incl. blink), surfaced
+    // only on the timeline below, not as a static bar (nothing to stare at
+    // when the face is neutral)
+    const h = blendHistory[a.key];
+    if (!h.rising && val - h.baseline > 0.28){ h.rising = true; h.startT = now; }
+    else if (h.rising && val < h.baseline + 0.12){
+      if (now - h.startT < 500 && now - h.lastEvent > 800){
+        h.lastEvent = now;
+        events.push({ t: now, label: `rapid facial change (${a.au})` });
+      }
+      h.rising = false;
+    } else if (h.rising && now - h.startT > 500){ h.rising = false; }
+    h.baseline += (val - h.baseline) * 0.01;
+  });
+
+  // smile/frown mode (brightness), smoothed, hysteresis on label
+  const smile = blendSmoothed['mouthSmileLeft'];
+  const frown = blendSmoothed['browDownLeft'];
+  const targetBrightness = Math.max(-1, Math.min(1, smile - frown));
+  modeBrightness += (targetBrightness - modeBrightness) * 0.08;
+  if (modeBrightness > 0.15) modeLabel = '宫';
+  else if (modeBrightness < -0.15) modeLabel = '羽';
+  valMode.textContent = modeLabel==='宫' ? t('modeGong') : t('modeYu');
+
+  const filterFreq = 1200 + (modeBrightness+1)/2 * 5500;
+  melodyFilter.frequency.rampTo(filterFreq, 0.3);
+
+  const reverbTarget = blendSmoothed['browInnerUp'];
+  const reverbWet = 0.15 + reverbTarget * 0.55;
+  masterReverb.wet.rampTo(Math.min(0.75, reverbWet), 0.3);
+
+  const jawTarget = blendSmoothed['jawOpen'];
+  const jawGain = 0.3 + jawTarget * 0.9;
+  harmonyGain.gain.rampTo(Math.min(1.1, jawGain), 0.3);
+
+  // ---- render the 3 bars that actually drive sound, each with its target value ----
+  const brightnessPct = Math.round((modeBrightness+1)/2 * 100);
+  valBrightness.textContent = brightnessPct + '%';
+  barBrightness.style.width = brightnessPct + '%';
+  brightnessHint.textContent = t('brightnessHint')(modeLabel==='宫' ? t('modeGong') : t('modeYu'), Math.round(filterFreq));
+
+  const reverbPct = Math.round(reverbTarget*100);
+  valReverb.textContent = '混响 ' + Math.round(reverbWet*100) + '%';
+  barReverb.style.width = reverbPct + '%';
+
+  const jawPct = Math.round(jawTarget*100);
+  valHarmonyVol.textContent = '音量 ' + Math.round(Math.min(1,jawGain)*100) + '%';
+  barHarmonyVol.style.width = jawPct + '%';
+
+  // Duchenne vs social smile, shown as a badge (only when actually smiling)
+  const cheek = blendSmoothed['cheekSquintLeft'];
+  smileBadge.classList.remove('duchenne','social');
+  if (smile > 0.4 && cheek < 0.2){ smileBadge.textContent = t('badgeSocial'); smileBadge.classList.add('social'); }
+  else if (smile > 0.4 && cheek >= 0.3){ smileBadge.textContent = t('badgeDuchenne'); smileBadge.classList.add('duchenne'); }
+  else { smileBadge.textContent = t('badgeNeutral'); }
+
+  renderTimeline(now);
+}
+
+function renderTimeline(now){
+  timeline.innerHTML = '';
+  const WINDOW = 5000;
+  while (events.length && now - events[0].t > WINDOW) events.shift();
+  for (const ev of events){
+    const pct = (1 - (now - ev.t)/WINDOW) * 100;
+    const tick = document.createElement('div');
+    tick.className = 'tick';
+    tick.style.left = pct + '%';
+    timeline.appendChild(tick);
+    const label = document.createElement('div');
+    label.className = 'tickLabel';
+    label.style.left = Math.max(0, pct-10) + '%';
+    label.textContent = ev.label;
+    timeline.appendChild(label);
+  }
+}
+
+// ================= HARMONIC SERIES VIZ =================
+// Canvas sits inside a CSS-mirrored container, so canvas-x=0 renders on the
+// viewer's right. To park this widget in the visual bottom-right we anchor
+// it near canvas-x=pad (left in canvas space); rects don't need unmirroring,
+// only the text glyphs do (per-glyph local flip, same trick as finger labels).
+function drawHarmonicSeries(now){
+  const H = canvas.height;
+  const boxW = 140, boxH = 120, pad = 16;
+  const bx = pad, by = H - boxH - pad;
+  for (let ei = harmonicEvents.length-1; ei>=0; ei--){
+    const ev = harmonicEvents[ei];
+    const age = now - ev.t;
+    if (age > 3000){ harmonicEvents.splice(ei,1); continue; }
+    const alpha = 1 - age/3000;
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.9;
+    for (let n=1;n<=6;n++){
+      const h = boxH * (1/n);
+      const x = bx + (n-1) * (boxW/6) + 4;
+      const y = by + boxH - h;
+      const barW = boxW/6 - 8;
+      ctx.fillStyle = "#39ff6a";
+      ctx.shadowColor = "#39ff6a"; ctx.shadowBlur = 8;
+      ctx.fillRect(x, y, barW, h);
+      ctx.save();
+      ctx.shadowBlur = 0;
+      ctx.translate(x + barW/2, by + boxH + 11);
+      ctx.scale(-1,1); // un-mirror the label text
+      ctx.font = "9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(n===1?'f':n+'f', 0, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+}
+
+// ================= MAIN LOOP =================
+let handDetailLabelY = 0;
+let frameCount = 0, lastFpsT = performance.now(), mainFps = 0;
+let faceFrameCount = 0, lastFaceFpsT = performance.now(), faceFps = 0;
+let faceSkip = 1, faceSkipCounter = 0;
+let fpsHistory = [];
+
+let predictLoopErrorCount = 0;
+
+function predictLoop(){
+  // A single bad frame (a detector hiccup, a NaN landmark, anything) must
+  // never kill this loop — without the try/catch, one uncaught throw here
+  // would stop requestAnimationFrame from ever being scheduled again and
+  // the whole display would freeze on the last good frame forever.
+  try{
+    predictFrame();
+  }catch(e){
+    predictLoopErrorCount++;
+    console.error('predictLoop frame error (skipped):', e);
+  }
+  requestAnimationFrame(predictLoop);
+}
+
+function predictFrame(){
+  if (video.readyState >= 2 && video.currentTime !== lastVideoTime){
+    lastVideoTime = video.currentTime;
+    const now = performance.now();
+
+    const poseResult = poseLandmarker.detectForVideo(video, now);
+    const handResult = handLandmarker.detectForVideo(video, now);
+
+    let faceResult = null;
+    faceSkipCounter++;
+    if (faceSkipCounter >= faceSkip){
+      faceSkipCounter = 0;
+      if (faceLandmarker){
+        faceResult = faceLandmarker.detectForVideo(video, now);
+        faceFrameCount++;
+      }
+    }
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // ---- face (background layer, thin & low opacity) ----
+    if (faceResult && faceResult.faceLandmarks && faceResult.faceLandmarks.length && showFace.checked){
+      drawGlow(FACE_CONNECTIONS, faceResult.faceLandmarks[0], 0, { color:"#39ff6a", alpha:0.18, lineWidth:0.7, blur:0, dots:false });
+    }
+    if (faceResult && faceResult.faceBlendshapes && faceResult.faceBlendshapes.length){
+      processFace(faceResult.faceBlendshapes[0].categories, now);
+    }
+
+    // ---- body ----
+    if (poseResult.landmarks && poseResult.landmarks.length){
+      poseSmoothed = smoothLM(poseSmoothed, poseResult.landmarks[0], 0.45);
+      if (showBody.checked) drawGlow(POSE_CONNECTIONS, poseSmoothed, 4, { checkVisible:true });
+    } else { poseSmoothed = null; }
+
+    // ---- hands ----
+    let handsSeenCount = 0;
+    let rightLm = null, leftLm = null;
+    if (handResult.landmarks && handResult.landmarks.length){
+      handsSeenCount = handResult.landmarks.length;
+      for (let hi=0; hi<handResult.landmarks.length; hi++){
+        const raw = handResult.landmarks[hi];
+        handSmoothed[hi] = smoothLM(handSmoothed[hi], raw, 0.35);
+        const lm = handSmoothed[hi];
+        const handed = handResult.handednesses[hi]?.[0]?.categoryName || 'Right';
+        const side = physicalHand(handed);
+
+        if (showHands.checked) drawGlow(HAND_CONNECTIONS, lm, 3.5, { bigTips:true });
+
+        if (tenFingerMode){
+          if (side === 'Right'){ processTenFingerHand(lm, TEN_RIGHT_DEF, tenRightState, now); rightLm = lm; }
+          else { processTenFingerHand(lm, TEN_LEFT_DEF, tenLeftState, now); leftLm = lm; }
+        } else {
+          if (side === 'Right'){ processRightHand(lm, now); rightLm = lm; }
+          else { processLeftHand(lm, now); leftLm = lm; }
+        }
+      }
+    }
+    valHandsSeen.textContent = handsSeenCount;
+    processTwoHands(rightLm, leftLm, now);
+
+    if (swHarmonicViz.checked) drawHarmonicSeries(now);
+  }
+
+  // fps bookkeeping
+  frameCount++;
+  const t = performance.now();
+  if (t - lastFpsT > 500){
+    mainFps = Math.round(frameCount / ((t-lastFpsT)/1000));
+    fpsHistory.push(mainFps); if (fpsHistory.length>6) fpsHistory.shift();
+    const avgFps = fpsHistory.reduce((a,b)=>a+b,0)/fpsHistory.length;
+    if (avgFps < 20 && faceSkip < 4) faceSkip++;
+    else if (avgFps > 26 && faceSkip > 1) faceSkip--;
+    faceFps = Math.round(faceFrameCount / ((t-lastFaceFpsT)/1000));
+    faceFpsEl.textContent = faceFps;
+    fpsEl.textContent = 'FPS ' + mainFps;
+    frameCount = 0; lastFpsT = t;
+    faceFrameCount = 0; lastFaceFpsT = t;
+  }
+}
+
+// ================= START =================
+document.getElementById('startBtn').addEventListener('click', async ()=>{
+  setStatus(t('statusRequestingCamera'));
+  try{
+    const quality = document.getElementById('modelQuality').value;
+    await Tone.start();
+    Tone.Transport.start();
+    // lower capture res = less pixels for all 3 models to chew through every frame
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ width:960, height:540 }, audio:false });
+    video.srcObject = stream;
+    await new Promise(res=>{ video.onloadedmetadata = res; });
+    video.play();
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    await createPoseLandmarker(quality);
+    await createHandLandmarker();
+    await createFaceLandmarker();
+
+    document.getElementById('startOverlay').style.display = 'none';
+    statusPanel.style.display = 'block';
+    facsPanel.style.display = 'block';
+    sanfenPanel.style.display = 'block';
+    controls.style.display = 'flex';
+    fpsEl.style.display = 'block';
+    setStatus("");
+    requestAnimationFrame(predictLoop);
+    initMidi();
+  }catch(e){
+    setStatus(t('statusErrorPrefix') + e.message + t('statusErrorSuffix'));
+    console.error(e);
+  }
+});
+
+// ================= UI BUTTONS =================
+btnCamera.addEventListener('click', ()=>{
+  video.classList.toggle('hidden');
+  btnCamera.textContent = video.classList.contains('hidden') ? t('btnCameraShow') : t('btnCameraHide');
+  btnCamera.classList.toggle('active');
+});
+btnMute.addEventListener('click', ()=>{
+  masterMuted = !masterMuted;
+  Tone.Destination.mute = masterMuted;
+  btnMute.textContent = masterMuted ? t('btnMuteOff') : t('btnMuteOn');
+  btnMute.classList.toggle('active', masterMuted);
+});
+btnTenFinger.addEventListener('click', ()=>{
+  tenFingerMode = !tenFingerMode;
+  if (tenFingerMode){
+    // entering Ten-Finger mode: cleanly release the left hand's Five-Tone
+    // gestures (harmony drone / pinch-overtone) so nothing is left hanging —
+    // the release envelope still plays out, so this is a smooth fade, not a cut.
+    setHarmonyTier(-1);
+    pinchState = false;
+    touchMode = 'touch';
+    valTouchMode.textContent = t('touchModeTouch');
+  } else {
+    // returning to Five-Tone mode: clear any stuck-bent flags from Ten-Finger
+    // state so it starts fresh; Five-Tone mode's own state was never touched.
+    tenLeftState.forEach(s=>{ s.bent = false; });
+    tenRightState.forEach(s=>{ s.bent = false; });
+  }
+  btnTenFinger.textContent = tenFingerMode ? t('btnTenFingerOn') : t('btnTenFingerOff');
+  btnTenFinger.classList.toggle('active', tenFingerMode);
+});
+btnFullscreen.addEventListener('click', ()=>{
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+});
+btnMidi.addEventListener('click', ()=>{
+  midiPanel.classList.toggle('show');
+  btnMidi.classList.toggle('active');
+});
+swSanfen.addEventListener('change', ()=>{ sanfenPanel.style.display = swSanfen.checked ? 'block' : 'none'; });
+
+applyLang();
+</script>
+</body>
+</html>

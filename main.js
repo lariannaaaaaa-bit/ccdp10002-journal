@@ -478,6 +478,17 @@
   // than it is tall. A plain centre pull makes a round blob stranded in the
   // middle of a wide screen, so scale the whole layout to the stage's area and
   // pull more weakly sideways than vertically, letting it spread to the width.
+  // re-measure unconditionally and say whether the clear band actually moved.
+  // syncViewport only re-measures when the viewport resizes, but the masthead
+  // can change height on its own (webfonts landing, a line wrapping), and a
+  // stale band lets stars drift up underneath the title.
+  function refreshLayout() {
+    const before = bounds.top + ':' + bounds.bottom;
+    measureBounds();
+    applyCentering();
+    return before !== bounds.top + ':' + bounds.bottom;
+  }
+
   function applyCentering() {
     const freeH = Math.max(220, H - bounds.top - bounds.bottom);
     const k = Math.max(0.8, Math.min(1.8, Math.sqrt((W * freeH) / (1000 * 430))));
@@ -959,6 +970,8 @@
   const collage = $('#week-collage');
   const captions = $('#week-captions');
   const bodyEl = $('#week-body');
+  const videoEl = $('#week-video');
+  const linksEl = $('#week-links');
   const chips = $('#week-chips');
   const replayBtn = $('#replay-tone');
   const prevBtn = $('#prev-week');
@@ -970,8 +983,62 @@
     });
   }
 
+  // --- per-week formats -----------------------------------------------
+  // The brief asked for the different approach each week to be visible, so
+  // each theme gets its own page furniture: a rule drawn in its own idiom,
+  // its own corners, its own heading treatment.
+  const RULES = {
+    sound: function () {                       // a decaying waveform
+      let d = 'M0,14';
+      for (let x = 0; x <= 600; x += 4) {
+        const a = 13 * Math.exp(-x / 900) * Math.sin(x / 11);
+        d += ' L' + x + ',' + (14 + a).toFixed(1);
+      }
+      return '<svg viewBox="0 0 600 28" preserveAspectRatio="none" aria-hidden="true">' +
+             '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>';
+    },
+    space: function () {                       // a modular grid
+      let g = '';
+      for (let x = 0; x <= 600; x += 25) {
+        g += '<line x1="' + x + '" y1="' + (x % 100 === 0 ? 2 : 10) +
+             '" x2="' + x + '" y2="26" stroke="currentColor" stroke-width="1"/>';
+      }
+      return '<svg viewBox="0 0 600 28" preserveAspectRatio="none" aria-hidden="true">' +
+             g + '<line x1="0" y1="26" x2="600" y2="26" stroke="currentColor" stroke-width="1"/></svg>';
+    },
+    nature: function () {                      // a branching, uneven line
+      let d = 'M0,20';
+      for (let x = 0; x <= 600; x += 50) {
+        d += ' Q' + (x + 25) + ',' + (20 - 14 * Math.sin(x / 70)).toFixed(1) +
+             ' ' + (x + 50) + ',' + (20 - 5 * Math.sin(x / 130)).toFixed(1);
+      }
+      return '<svg viewBox="0 0 600 28" preserveAspectRatio="none" aria-hidden="true">' +
+             '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.2" ' +
+             'stroke-linecap="round"/></svg>';
+    },
+    vision: function () {                      // film perforations
+      let g = '';
+      for (let x = 6; x <= 588; x += 24) {
+        g += '<rect x="' + x + '" y="9" width="12" height="10" rx="2.5" ' +
+             'fill="none" stroke="currentColor" stroke-width="1"/>';
+      }
+      return '<svg viewBox="0 0 600 28" preserveAspectRatio="none" aria-hidden="true">' +
+             '<line x1="0" y1="2" x2="600" y2="2" stroke="currentColor" stroke-width="1"/>' + g +
+             '<line x1="0" y1="26" x2="600" y2="26" stroke="currentColor" stroke-width="1"/></svg>';
+    },
+    ideas: function () {                       // quiet: just a hairline
+      return '<svg viewBox="0 0 600 28" preserveAspectRatio="none" aria-hidden="true">' +
+             '<line x1="0" y1="14" x2="600" y2="14" stroke="currentColor" stroke-width="1"/></svg>';
+    }
+  };
+
   function renderWeek(wk) {
     const t = theme(wk);
+    const fmt = wk.format || wk.theme;
+    weekEl.setAttribute('data-format', RULES[fmt] ? fmt : 'ideas');
+    weekEl.style.setProperty('--week-color', t.color);
+    const rule = $('#week-rule');
+    if (rule) rule.innerHTML = (RULES[fmt] || RULES.ideas)();
 
     weekDot.style.color = t.color;
     weekMetaText.textContent = String(wk.week).padStart(2, '0') + ' · ' + t.label +
@@ -1006,6 +1073,39 @@
       captions.appendChild(cap);
     });
     collage.hidden = photos.length === 0;
+
+    /* an optional video of the week's own work */
+    videoEl.innerHTML = '';
+    videoEl.hidden = !wk.video;
+    if (wk.video) {
+      const vid = document.createElement('video');
+      vid.src = wk.video.src;
+      vid.controls = true;
+      vid.preload = 'metadata';
+      vid.playsInline = true;
+      vid.setAttribute('playsinline', '');
+      if (wk.video.poster) vid.poster = wk.video.poster;
+      videoEl.appendChild(vid);
+      if (wk.video.caption) {
+        const cap = document.createElement('figcaption');
+        cap.className = 'mono';
+        cap.textContent = wk.video.caption;
+        videoEl.appendChild(cap);
+      }
+    }
+
+    /* optional links to things that are playable rather than readable */
+    linksEl.innerHTML = '';
+    linksEl.hidden = !(wk.links && wk.links.length);
+    (wk.links || []).forEach(function (lk) {
+      const a = document.createElement('a');
+      a.className = 'live-link';
+      a.href = lk.href;
+      if (/^https?:/.test(lk.href)) { a.target = '_blank'; a.rel = 'noopener'; }
+      a.innerHTML = '<span>' + escapeHTML(lk.label) + ' &rarr;</span>' +
+        (lk.note ? '<span class="mono">' + escapeHTML(lk.note) + '</span>' : '');
+      linksEl.appendChild(a);
+    });
 
     /* body with highlighted phrases */
     bodyEl.innerHTML = '';
@@ -1131,18 +1231,28 @@
   // the pane may still be hidden at load; re-check until the numbers are real
   [60, 250, 800, 2000].forEach(function (ms) {
     setTimeout(function () {
-      if (syncViewport() && !currentWeek) sim.alpha(0.5).restart();
+      const moved = syncViewport() | refreshLayout();
+      if (moved && !currentWeek) sim.alpha(0.5).restart();
     }, ms);
   });
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && syncViewport() && !currentWeek) sim.alpha(0.4).restart();
+    if (document.hidden) return;
+    const moved = syncViewport() | refreshLayout();
+    if (moved && !currentWeek) sim.alpha(0.4).restart();
   });
+
+  // the masthead can reflow on its own; keep the clear band honest
+  if (window.ResizeObserver) {
+    const mast = galaxyEl.querySelector('.masthead');
+    if (mast) new ResizeObserver(function () {
+      if (refreshLayout() && !currentWeek) sim.alpha(0.3).restart();
+    }).observe(mast);
+  }
 
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(function () {
-      measureBounds();
-      applyCentering();
-      if (!currentWeek) sim.alpha(0.25).restart();
+      refreshLayout();
+      if (!currentWeek) sim.alpha(0.3).restart();
     });
   }
 
