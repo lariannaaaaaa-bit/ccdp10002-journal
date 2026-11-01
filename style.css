@@ -195,7 +195,13 @@ body.galaxy-locked { overflow: hidden; }
 .ctrl[aria-pressed="true"] { color: var(--ink); background: rgba(232, 236, 243, 0.11); }
 
 /* ------------------------------------------------------------ star map */
+/* no browser focus box — a white rim on the star says it instead */
 .star { cursor: pointer; }
+.star:focus { outline: none; }
+.star:focus-visible { outline: none; }
+.star:focus-visible .core { stroke: #fff; stroke-width: 2.2px; }
+.star:focus-visible .halo { opacity: 1; }
+.link-hit:focus { outline: none; }
 .star .hit { fill: transparent; }
 .star .core { stroke: rgba(255, 255, 255, 0.85); stroke-width: 0.6; }
 .star .pip  { fill: #fff; }
@@ -204,6 +210,10 @@ body.galaxy-locked { overflow: hidden; }
   font-family: var(--mono);
   font-size: 10px;
   text-transform: lowercase;
+  paint-order: stroke;            /* a dark halo so words stay legible over lines */
+  stroke: rgba(5, 6, 11, 0.92);
+  stroke-width: 3px;
+  stroke-linejoin: round;
   letter-spacing: 0.1em;
   fill: var(--ink-faint);
   text-anchor: middle;
@@ -217,9 +227,35 @@ body.galaxy-locked { overflow: hidden; }
 .star .halo { transition: opacity 0.3s; }
 .star:hover .halo, .star.is-active .halo { opacity: 1; }
 
+/* hover focus: one star's constellation forward, everything else back */
+#node-layer .star, #link-layer .link-g { transition: opacity 0.22s var(--ease); }
+#node-layer.dimmed .star:not(.related) { opacity: 0.2; }
+#node-layer.dimmed .star:not(.related) .wlabel { opacity: 0; }
+#link-layer.dimmed .link-g:not(.related) { opacity: 0.1; }
+#link-layer.dimmed .link-g.related .link-line.crisp { opacity: 0.95; }
+#link-layer.dimmed .link-g.related .link-line.soft { opacity: 0.22; }
+
+/* clicking a star draws its own connections before the camera flies in */
+#link-layer.revealing .link-g.related .link-line.crisp {
+  animation: reveal-link 520ms var(--ease) both;
+}
+#link-layer.revealing .link-g.related .link-line.soft {
+  animation: reveal-glow 520ms var(--ease) both;
+}
+@keyframes reveal-link {
+  0%   { opacity: 0.08; stroke-width: 1.1px; }
+  45%  { opacity: 1;    stroke-width: 2.6px; }
+  100% { opacity: 0.95; stroke-width: 1.4px; }
+}
+@keyframes reveal-glow {
+  0%   { opacity: 0.05; stroke-width: 4px; }
+  45%  { opacity: 0.4;  stroke-width: 11px; }
+  100% { opacity: 0.22; stroke-width: 6px; }
+}
+
 .link-line { pointer-events: none; transition: opacity 0.25s, stroke-width 0.25s; }
-.link-hit  { stroke: transparent; cursor: pointer; }
-.link-hit:focus-visible { stroke: rgba(127, 179, 255, 0.45); }
+.link-hit  { stroke: transparent; fill: none; cursor: pointer; }
+.link-hit:focus-visible { stroke: rgba(195, 216, 255, 0.4); outline: none; }
 
 .link-g.is-hover .link-line.crisp,
 .link-g.is-active .link-line.crisp { opacity: 0.95; }

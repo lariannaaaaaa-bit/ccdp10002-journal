@@ -16,11 +16,13 @@
 
     // the four themes: colour, legend label, legend blurb
     themes: {
-      vision: { color: '#7fb3ff', label: 'vision', blurb: 'image, screen, reproduction' },
-      sound:  { color: '#ffb84d', label: 'sound',  blurb: 'acoustics, music, overtones' },
-      space:  { color: '#b79cff', label: 'space',  blurb: 'architecture, virtual worlds' },
-      nature: { color: '#6fd39b', label: 'nature', blurb: 'biomimicry, ecology, systems' },
-      ideas:  { color: '#dce3ec', label: 'ideas',  blurb: 'paradigms, history, the self' }
+      // one cool family: paper white -> pale blue -> blue, with a violet and a
+      // teal drift. Swap the five hex values to re-skin the whole site.
+      ideas:  { color: '#eef3fc', label: 'ideas',  blurb: 'paradigms, history, the self' },
+      vision: { color: '#c3d8ff', label: 'vision', blurb: 'image, screen, reproduction' },
+      sound:  { color: '#8ab4f0', label: 'sound',  blurb: 'acoustics, music, overtones' },
+      space:  { color: '#a79cf0', label: 'space',  blurb: 'architecture, virtual worlds' },
+      nature: { color: '#7fd4cb', label: 'nature', blurb: 'biomimicry, ecology, systems' }
     },
 
     star: {
@@ -36,7 +38,8 @@
       opacity: 0.4,
       glowWidth: 5.5,         // soft wide line under the crisp one
       glowOpacity: 0.09,
-      hitWidth: 16            // invisible click target
+      hitWidth: 16,           // invisible click target
+      curve: 0.13             // how far each link bows off a straight line
     },
 
     force: {
@@ -72,7 +75,7 @@
       twinkle: 0.45
     },
 
-    zoom: { scale: 7.5, duration: 900 }
+    zoom: { scale: 7.5, duration: 900, reveal: 520 }
   };
 
   /* ------------------------------------------------------------- SHORTHANDS */
@@ -365,18 +368,19 @@
     grad.appendChild(svgEl('stop', { offset: '100%', 'stop-color': colorOf(l.target.data) }));
     defs.appendChild(grad);
 
-    const glow = svgEl('line', {
-      class: 'link-line soft', stroke: 'url(#' + gradId + ')',
+    const glow = svgEl('path', {
+      class: 'link-line soft', fill: 'none', stroke: 'url(#' + gradId + ')',
       'stroke-width': CONFIG.link.glowWidth, 'stroke-linecap': 'round',
       opacity: CONFIG.link.glowOpacity
     });
-    const line = svgEl('line', {
-      class: 'link-line crisp', stroke: 'url(#' + gradId + ')',
+    const line = svgEl('path', {
+      class: 'link-line crisp', fill: 'none', stroke: 'url(#' + gradId + ')',
       'stroke-width': CONFIG.link.width, 'stroke-linecap': 'round',
       opacity: CONFIG.link.opacity
     });
-    const hit = svgEl('line', {
-      class: 'link-hit', 'stroke-width': CONFIG.link.hitWidth, 'stroke-linecap': 'round'
+    const hit = svgEl('path', {
+      class: 'link-hit', fill: 'none',
+      'stroke-width': CONFIG.link.hitWidth, 'stroke-linecap': 'round'
     });
     hit.setAttribute('tabindex', '0');
     hit.setAttribute('role', 'button');
@@ -470,9 +474,47 @@
 
   function centreY() { return (bounds.top + (H - bounds.bottom)) / 2; }
 
+  // The stage is the band between the masthead and the HUD — usually much wider
+  // than it is tall. A plain centre pull makes a round blob stranded in the
+  // middle of a wide screen, so scale the whole layout to the stage's area and
+  // pull more weakly sideways than vertically, letting it spread to the width.
   function applyCentering() {
-    sim.force('x', d3.forceX(W / 2).strength(CONFIG.force.centering));
-    sim.force('y', d3.forceY(centreY()).strength(CONFIG.force.centering));
+    const freeH = Math.max(220, H - bounds.top - bounds.bottom);
+    const k = Math.max(0.8, Math.min(1.8, Math.sqrt((W * freeH) / (1000 * 430))));
+    const a = Math.max(1, Math.min(1.9, Math.sqrt(W / freeH)));
+
+    sim.force('link', d3.forceLink(graph.links)
+      .id(function (d) { return d.id; })
+      .distance(CONFIG.force.linkDistance * k)
+      .strength(CONFIG.force.linkStrength));
+    sim.force('charge', d3.forceManyBody().strength(CONFIG.force.charge * k * k));
+    sim.force('collide', d3.forceCollide(function (d) {
+      return d.r + CONFIG.force.collidePad * k;
+    }));
+    sim.force('x', d3.forceX(W / 2).strength(CONFIG.force.centering / a));
+    sim.force('y', d3.forceY(centreY()).strength(CONFIG.force.centering * a));
+  }
+
+  // who is adjacent to whom, for the hover focus
+  const neighbours = {};
+  graph.nodes.forEach(function (n) { neighbours[n.id] = { }; neighbours[n.id][n.id] = 1; });
+  graph.links.forEach(function (l) {
+    neighbours[l.source.id][l.target.id] = 1;
+    neighbours[l.target.id][l.source.id] = 1;
+  });
+
+  // hovering a star pulls its own constellation forward and pushes the rest back
+  function setHighlight(n) {
+    const on = !!n;
+    nodeLayer.classList.toggle('dimmed', on);
+    linkLayer.classList.toggle('dimmed', on);
+    graph.nodes.forEach(function (x) {
+      starGroups[x.id].classList.toggle('related', on && !!neighbours[n.id][x.id]);
+    });
+    linkParts.forEach(function (p) {
+      p.g.classList.toggle('related',
+        on && (p.link.source.id === n.id || p.link.target.id === n.id));
+    });
   }
 
   /* ------------------------------------------------------------- the forces */
@@ -524,6 +566,18 @@
   sim.alphaTarget(reduceMotion ? 0 : CONFIG.drift.alphaTarget).restart();
   if (reduceMotion) sim.stop();
 
+  // every link bows the same way round, which reads as flow instead of a tangle
+  function arcPath(s, t) {
+    const dx = t.x - s.x, dy = t.y - s.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const bow = len * CONFIG.link.curve;
+    const cx = (s.x + t.x) / 2 - (dy / len) * bow;
+    const cy = (s.y + t.y) / 2 + (dx / len) * bow;
+    return 'M' + s.x.toFixed(1) + ',' + s.y.toFixed(1) +
+           'Q' + cx.toFixed(1) + ',' + cy.toFixed(1) +
+           ' ' + t.x.toFixed(1) + ',' + t.y.toFixed(1);
+  }
+
   function tick() {
     const m = CONFIG.force.margin;
     const minY = bounds.top + m * 0.35;
@@ -537,10 +591,10 @@
 
     linkParts.forEach(function (p) {
       const s = p.link.source, t = p.link.target;
-      [p.glow, p.line, p.hit].forEach(function (el) {
-        el.setAttribute('x1', s.x.toFixed(2)); el.setAttribute('y1', s.y.toFixed(2));
-        el.setAttribute('x2', t.x.toFixed(2)); el.setAttribute('y2', t.y.toFixed(2));
-      });
+      const d = arcPath(s, t);
+      p.glow.setAttribute('d', d);
+      p.line.setAttribute('d', d);
+      p.hit.setAttribute('d', d);
       p.grad.setAttribute('x1', s.x.toFixed(2)); p.grad.setAttribute('y1', s.y.toFixed(2));
       p.grad.setAttribute('x2', t.x.toFixed(2)); p.grad.setAttribute('y2', t.y.toFixed(2));
     });
@@ -580,6 +634,7 @@
   /* -------------------------------------------------------------- tooltips */
   function showTip(n) {
     tipNode = n;
+    setHighlight(n);
     tip.innerHTML = '<span class="mono">' + theme(n.data).label + ' &middot; ' +
       fmtDate(n.data.date) + '</span>' + escapeHTML(n.data.title);
     tip.hidden = false;
@@ -589,10 +644,13 @@
     tip.style.left = n.x + 'px';
     tip.style.top = (n.y - n.r - CONFIG.star.labelGap - 6) + 'px';
   }
-  function hideTip() { tipNode = null; tip.hidden = true; }
+  function hideTip() { tipNode = null; tip.hidden = true; setHighlight(null); }
 
   /* ------------------------------------------------ click / tap on a star */
+  let revealing = false;
+
   function activateStar(n) {
+    if (revealing) return;
     audio.play(n.week);
     if (hint) hint.classList.add('gone');
 
@@ -600,9 +658,27 @@
     if (isTouch && tipNode !== n) { showTip(n); return; }
 
     hideCards();
-    hideTip();
-    pendingZoom = n;
-    location.hash = n.id;
+
+    // show the star's own constellation first, then fly into the week
+    const straightIn = reduceMotion || (isTouch && tipNode === n);
+    const go = function (guarded) {
+      revealing = false;
+      linkLayer.classList.remove('revealing');
+      if (guarded && (currentWeek || seq !== navSeq)) return;   // they left already
+      hideTip();
+      pendingZoom = n;
+      location.hash = n.id;
+    };
+
+    if (straightIn) { go(); return; }
+
+    revealing = true;
+    const seq = navSeq;
+    setHighlight(n);
+    linkLayer.classList.remove('revealing');
+    void linkLayer.getBoundingClientRect();        // restart the animation
+    linkLayer.classList.add('revealing');
+    setTimeout(function () { go(true); }, CONFIG.zoom.reveal);
   }
 
   /* ------------------------------------------------------ connection card */
@@ -688,14 +764,30 @@
      ===================================================================== */
   function easeInOut(p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
 
+  // requestAnimationFrame does not fire while the tab is hidden, so a transition
+  // started just before the user switches away would freeze half-done and leave
+  // the camera stuck mid-zoom. A timer backstop always lands the final frame.
   function animate(dur, step, done) {
     if (reduceMotion) { step(1); if (done) done(); return; }
     const t0 = performance.now();
+    let finished = false;
+
+    function finish() {
+      if (finished) return;
+      finished = true;
+      step(1);
+      if (done) done();
+    }
+
     (function frame(now) {
+      if (finished) return;
       const p = clamp01((now - t0) / dur);
+      if (p >= 1) { finish(); return; }
       step(easeInOut(p));
-      if (p < 1) requestAnimationFrame(frame); else if (done) done();
+      requestAnimationFrame(frame);
     })(t0);
+
+    setTimeout(finish, dur + 150);
   }
 
   function setCamera(u, node) {
@@ -708,6 +800,19 @@
   }
 
   function setFocus(u, keepId) {
+    if (u <= 0) {                      // back to the plain galaxy: hand opacity
+      graph.nodes.forEach(function (n) {   // back to the stylesheet
+        starGroups[n.id].style.opacity = '';
+        starGroups[n.id].classList.remove('is-active');
+      });
+      linkParts.forEach(function (p) { p.g.style.opacity = ''; });
+      timelineLayer.style.opacity = '';
+      ['.masthead', '.hud', '.hint'].forEach(function (sel) {
+        const el = $(sel, galaxyEl);
+        if (el) el.style.opacity = '';
+      });
+      return;
+    }
     const dim = 1 - u;
     graph.nodes.forEach(function (n) {
       const g = starGroups[n.id];
@@ -739,6 +844,8 @@
      ===================================================================== */
   let currentWeek = null;   // the week object on screen, or null for the galaxy
   let pendingZoom = null;   // star that was clicked, so we know to animate
+  let navSeq = 0;           // a zoom still running when the route changes again
+                            // must not finish and hide the wrong view
 
   function weekById(id) {
     for (let i = 0; i < WEEKS.length; i++) if (WEEKS[i].id === id) return WEEKS[i];
@@ -752,6 +859,7 @@
   }
 
   function openWeek(wk) {
+    const seq = ++navSeq;
     const wasGalaxy = !currentWeek;
     const sameAgain = currentWeek && currentWeek.id === wk.id;
     currentWeek = wk;
@@ -772,8 +880,10 @@
     if (node) {
       galaxyEl.classList.add('fading');
       animate(CONFIG.zoom.duration, function (u) {
+        if (seq !== navSeq) return;
         setCamera(u, node); setFocus(u, node.id); galaxyFade(u);
       }, function () {
+        if (seq !== navSeq) return;
         galaxyEl.hidden = true;
         galaxyEl.classList.remove('fading');
         galaxyEl.style.opacity = '';
@@ -790,6 +900,7 @@
   }
 
   function closeWeek() {
+    const seq = ++navSeq;
     const leaving = currentWeek;
     currentWeek = null;
     document.title = 'CCDP10002 — The Electronic Arts: Vision and Sound';
@@ -815,9 +926,11 @@
     sim.alphaTarget(reduceMotion ? 0 : CONFIG.drift.alphaTarget).restart();
 
     animate(CONFIG.zoom.duration, function (p) {
+      if (seq !== navSeq) return;
       const u = 1 - p;
       setCamera(u, node); setFocus(u, node.id); galaxyFade(u);
     }, function () {
+      if (seq !== navSeq) return;
       weekEl.hidden = true;
       weekEl.style.opacity = '';
       galaxyEl.classList.remove('fading');
