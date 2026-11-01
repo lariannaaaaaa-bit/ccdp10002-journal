@@ -12,8 +12,9 @@ window.WEEKS = [
   {
     id: "w1",
     week: 1,
+    pull: 0.1,
     title: "Breadth, schools, and teaching yourself",
-    short: "Schools",
+    short: "Breadth",
     theme: "ideas",
     date: "2026-07-31",
     photos: [],
@@ -22,6 +23,7 @@ window.WEEKS = [
   {
     id: "w2",
     week: 2,
+    pull: 0.7,
     widget: "contrast",
     title: "Re-defining everything: electricity, McGurk, paper",
     short: "Re-defining",
@@ -37,6 +39,7 @@ window.WEEKS = [
   {
     id: "w3",
     week: 3,
+    pull: 0.72,
     widget: ["framerate", "resolution"],
     title: "1900–1930: the mechanical paradise and the birth of reproduction",
     short: "Reproduction",
@@ -52,6 +55,7 @@ window.WEEKS = [
   {
     id: "w4",
     week: 4,
+    pull: 0.95,
     widget: "doors",
     lens: [
       { t: "11.04", title: "Shadow puppetry and play", who: "", year: "" },
@@ -82,7 +86,7 @@ window.WEEKS = [
       { t: "11.28", title: "Yanmeeyarr", who: "Vicki Couzens, Gunditjmara Keerray Woorroong", year: "2020" }
     ],
     title: "ACMI: the story of the moving image",
-    short: "Moving image",
+    short: "ACMI",
     theme: "vision",
     date: "2026-08-21",
     photos: [
@@ -108,6 +112,7 @@ window.WEEKS = [
   {
     id: "w5",
     week: 5,
+    pull: 1.0,
     widget: "harmonics",
     title: "What is sound? Overtones, cymatics, listening",
     short: "Overtones",
@@ -123,8 +128,9 @@ window.WEEKS = [
   {
     id: "w6",
     week: 6,
+    pull: 0.4,
     title: "Electronic music, and listening inside the Old Conservatory",
-    short: "Electronic",
+    short: "Electronic music",
     theme: "sound",
     date: "2026-09-04",
     photos: [
@@ -137,6 +143,7 @@ window.WEEKS = [
   {
     id: "w7",
     week: 7,
+    pull: 0.45,
     title: "Bauhaus, Constructivism, and the architecture of virtual worlds",
     short: "Architecture",
     theme: "space",
@@ -149,8 +156,9 @@ window.WEEKS = [
   {
     id: "w8",
     week: 8,
+    pull: 0.48,
     title: "The Digital Revolution, and the roots called \"Eastern\"",
-    short: "Eastern roots",
+    short: "Other roots",
     theme: "ideas",
     date: "2026-09-18",
     photos: [
@@ -163,6 +171,7 @@ window.WEEKS = [
   {
     id: "w9",
     week: 9,
+    pull: 0.9,
     title: "Biomimicry: from conquering nature to consulting it",
     short: "Biomimicry",
     theme: "nature",
@@ -177,8 +186,9 @@ window.WEEKS = [
   {
     id: "w10",
     week: 10,
+    pull: 1.0,
     title: "Pentatonic Vision: the body as an instrument",
-    short: "Instrument",
+    short: "五音 Pentatonic",
     theme: "ideas",
     date: "2026-10-09",
     video: { src: "media/presentation.mp4", caption: "五音 / Pentatonic Vision — the body-tracking instrument running live." },
@@ -195,8 +205,9 @@ window.WEEKS = [
   {
     id: "w11",
     week: 11,
+    pull: 0.52,
     title: "Science Gallery: being inside the work",
-    short: "Immersion",
+    short: "Science Gallery",
     theme: "nature",
     date: "2026-10-16",
     photos: [
@@ -209,8 +220,9 @@ window.WEEKS = [
   {
     id: "w12",
     week: 12,
+    pull: 0.4,
     title: "Advertising, media, and the economy of attention",
-    short: "Attention",
+    short: "Advertising",
     theme: "vision",
     date: "2026-10-23",
     photos: [

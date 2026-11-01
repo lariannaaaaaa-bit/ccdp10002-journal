@@ -47,6 +47,7 @@
       linkStrength: 0.35,
       charge: -460,           // many-body repulsion
       centering: 0.05,        // weak pull to the middle of the free area
+      radial: 0.46,           // how hard `pull` decides distance from the centre
       collidePad: 46,
       velocityDecay: 0.55,
       settleTicks: 300,       // ticks run before the first paint
@@ -525,6 +526,18 @@
     }));
     sim.force('x', d3.forceX(W / 2).strength(CONFIG.force.centering / a));
     sim.force('y', d3.forceY(centreY()).strength(CONFIG.force.centering * a));
+
+    // `pull` is editorial, not structural: how much a week deserves to be the
+    // first thing somebody clicks. Degree alone puts the best-connected week in
+    // the middle, which is not the same as the most worth opening. A radial
+    // force sets each week's distance from the centre directly — pull 1 lands
+    // on the middle, pull 0 on the rim — so the ordering is a decision, not a
+    // side effect of the graph.
+    const maxR = Math.min(W * 0.46, freeH * 0.46);
+    sim.force('radial', d3.forceRadial(function (d) {
+      const p = typeof d.data.pull === 'number' ? d.data.pull : 0.5;
+      return 24 + maxR * Math.pow(1 - p, 0.85);
+    }, W / 2, centreY()).strength(CONFIG.force.radial));
   }
 
   // who is adjacent to whom, for the hover focus
