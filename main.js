@@ -222,6 +222,27 @@
         try { localStorage.setItem('ccdp-muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
         return muted;
       },
+      // a struck harmonic at a given pitch. Bell-like: a sine with a quiet
+      // second partial, fast attack, long release. Click-driven only.
+      pluck: function (freq, gain) {
+        if (muted || !freq) return;
+        const c = ensure();
+        if (!c) return;
+        const t = c.currentTime;
+        [[1, 1], [2, 0.16]].forEach(function (pair) {
+          const osc = c.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.value = freq * pair[0];
+          const g = c.createGain();
+          const peak = (gain || 0.16) * pair[1] * Math.pow(freq / 220, -0.35);
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.linearRampToValueAtTime(peak, t + 0.012);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
+          osc.connect(g); g.connect(master);
+          osc.start(t); osc.stop(t + 2.5);
+        });
+      },
+
       // never called on load: only from a click
       play: function (harmonic) {
         if (muted || !harmonic) return;
@@ -971,6 +992,7 @@
   const captions = $('#week-captions');
   const bodyEl = $('#week-body');
   const videoEl = $('#week-video');
+  const galleryEl = $('#week-gallery');
   const linksEl = $('#week-links');
   const chips = $('#week-chips');
   const replayBtn = $('#replay-tone');
@@ -982,6 +1004,284 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+
+
+  /* =====================================================================
+     WIDGETS — things to do rather than read. A week names one with
+     `widget: "..."` in data/weeks.js and the builder returns a DOM node.
+     Each one argues that week's point without a sentence being involved.
+     ===================================================================== */
+  const WIDGETS = {
+
+    // W5 — the three harmonic shapes Like A Star's intro is made of.
+    // Tuning C G D G A D with a capo at the second fret, so the strings
+    // sound D2 A2 E3 A3 B3 E4. Every harmonic in the intro is the same
+    // move: touch the string twelve frets above wherever it is stopped,
+    // which halves the vibrating length and gives the octave.
+    harmonics: function () {
+      const OPEN = [73.42, 110.00, 164.81, 220.00, 246.94, 329.63];  // D2 A2 E3 A3 B3 E4
+      const NAMES = ['D', 'A', 'E', 'A', 'B', 'E'];
+      const SHAPES = [
+        { tab: '0<12>', mult: 2,                     label: 'open, touched at the 12th' },
+        { tab: '2<14>', mult: 2 * Math.pow(2, 2/12), label: 'stopped at the 2nd, touched at the 14th' },
+        { tab: '4<16>', mult: 2 * Math.pow(2, 4/12), label: 'stopped at the 4th, touched at the 16th' }
+      ];
+      const wrap = document.createElement('div');
+      wrap.className = 'w-harm';
+
+      const grid = document.createElement('div');
+      grid.className = 'w-harm-grid';
+      const head = document.createElement('div');
+      head.className = 'w-harm-row w-harm-head mono';
+      head.innerHTML = '<span></span>' + NAMES.map(function (n, i) {
+        return '<span>' + n + '<sub>' + (i < 2 ? 2 : i < 3 ? 3 : i < 5 ? 3 : 4) + '</sub></span>';
+      }).join('');
+      grid.appendChild(head);
+
+      const keys = [];
+      SHAPES.forEach(function (sh) {
+        const row = document.createElement('div');
+        row.className = 'w-harm-row';
+        const lab = document.createElement('span');
+        lab.className = 'mono w-harm-tab';
+        lab.textContent = sh.tab;
+        lab.title = sh.label;
+        row.appendChild(lab);
+        OPEN.forEach(function (f) {
+          const k = document.createElement('button');
+          k.type = 'button';
+          k.className = 'w-key';
+          const freq = f * sh.mult;
+          k.setAttribute('aria-label', Math.round(freq) + ' hertz');
+          k.onclick = function () { audio.pluck(freq); ping(k); };
+          row.appendChild(k);
+          keys.push({ el: k, freq: freq });
+        });
+        grid.appendChild(row);
+      });
+
+      function ping(el) {
+        el.classList.remove('lit');
+        void el.offsetWidth;
+        el.classList.add('lit');
+      }
+
+      const foot = document.createElement('div');
+      foot.className = 'w-foot';
+      foot.innerHTML =
+        '<button type="button" class="ctrl mono" data-go>Play the figure</button>' +
+        '<p class="mono">Eighteen harmonics, one move. Touch any string exactly twelve frets ' +
+        'above where it is stopped and you get the octave — the second partial, already inside ' +
+        'the note. The intro is almost nothing else.</p>';
+      wrap.appendChild(grid);
+      wrap.appendChild(foot);
+
+      let timers = [];
+      foot.querySelector('[data-go]').onclick = function () {
+        timers.forEach(clearTimeout); timers = [];
+        const order = [0, 6, 12, 1, 7, 13, 2, 8, 3, 9, 15, 4, 10, 16, 5, 11, 17];
+        order.forEach(function (idx, n) {
+          timers.push(setTimeout(function () {
+            const k = keys[idx];
+            if (k) { audio.pluck(k.freq, 0.13); ping(k.el); }
+          }, n * 230));
+        });
+      };
+      wrap.addEventListener('ccdp:teardown', function () { timers.forEach(clearTimeout); });
+      return wrap;
+    },
+
+    // W4 — the museum as a sequence of doors, then everything joined up.
+    // Twenty-six things, in the order the Lens recorded them.
+    doors: function (wk) {
+      const items = wk.lens || [];
+      const wrap = document.createElement('div');
+      wrap.className = 'w-doors';
+
+      const grid = document.createElement('div');
+      grid.className = 'w-door-grid';
+      const opened = [];
+
+      items.forEach(function (it, i) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'w-door';
+        cell.setAttribute('aria-label', 'Open door ' + (i + 1));
+        cell.innerHTML =
+          '<span class="w-door-front mono">' + it.t + '</span>' +
+          '<span class="w-door-back">' +
+            '<b>' + escapeHTML(it.title) + '</b>' +
+            (it.who ? '<i>' + escapeHTML(it.who) + '</i>' : '') +
+            (it.year ? '<span class="mono">' + escapeHTML(it.year) + '</span>' : '') +
+          '</span>';
+        cell.onclick = function () {
+          if (cell.classList.contains('open')) return;
+          cell.classList.add('open');
+          opened.push(i);
+          count();
+        };
+        grid.appendChild(cell);
+      });
+
+      const foot = document.createElement('div');
+      foot.className = 'w-foot';
+      foot.innerHTML =
+        '<button type="button" class="ctrl mono" data-all>Open the rest</button>' +
+        '<p class="mono"><output>0</output> of ' + items.length + ' opened. ' +
+        'This is what the Lens recorded, in the order I tapped it.</p>';
+
+      const con = document.createElement('div');
+      con.className = 'w-constellation';
+      con.hidden = true;
+
+      function count() {
+        foot.querySelector('output').textContent = opened.length;
+        if (opened.length === items.length) reveal();
+      }
+
+      function reveal() {
+        if (!con.hidden) return;
+        con.hidden = false;
+        const R = 46, cx = 50, cy = 50;
+        let dots = '', lines = '';
+        const pts = items.map(function (_, i) {
+          const a = (i / items.length) * Math.PI * 2 - Math.PI / 2;
+          return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+        });
+        pts.forEach(function (p, i) {
+          const q = pts[(i * 7) % pts.length];                 // join each to a distant one
+          lines += '<line x1="' + p[0].toFixed(1) + '" y1="' + p[1].toFixed(1) +
+                   '" x2="' + q[0].toFixed(1) + '" y2="' + q[1].toFixed(1) +
+                   '" stroke="currentColor" stroke-width="0.25" stroke-opacity="0.5"/>';
+          dots += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) +
+                  '" r="1.4" fill="currentColor"/>';
+        });
+        con.innerHTML =
+          '<svg viewBox="0 0 100 100" aria-hidden="true">' + lines + dots + '</svg>' +
+          '<p class="mono">The last room is called Constellation. Everything you tapped is ' +
+          'put on a wall joined to hundreds of works nobody in the building chose for you. ' +
+          'I had already been building this journal as exactly that, and did not notice ' +
+          'until I was standing in it.</p>';
+      }
+
+      foot.querySelector('[data-all]').onclick = function () {
+        [].forEach.call(grid.children, function (c, i) {
+          if (!c.classList.contains('open')) {
+            setTimeout(function () { c.classList.add('open'); opened.push(i); count(); }, i * 45);
+          }
+        });
+      };
+
+      wrap.appendChild(grid);
+      wrap.appendChild(foot);
+      wrap.appendChild(con);
+      return wrap;
+    },
+
+    // W2 — the senses are an edit. Two identical greys that refuse to look it.
+    contrast: function () {
+      const wrap = document.createElement('div');
+      wrap.className = 'w-contrast';
+      wrap.innerHTML =
+        '<div class="w-stage">' +
+          '<div class="w-half w-light"><span class="w-chip"></span></div>' +
+          '<div class="w-half w-dark"><span class="w-chip"></span></div>' +
+        '</div>' +
+        '<div class="w-foot">' +
+          '<button type="button" class="ctrl mono">Put them side by side</button>' +
+          '<p class="mono">Both chips are the same grey. Mine still refuse to look it.</p>' +
+        '</div>';
+      const btn = wrap.querySelector('button');
+      let joined = false;
+      btn.onclick = function () {
+        joined = !joined;
+        wrap.classList.toggle('joined', joined);
+        btn.textContent = joined ? 'Put them back' : 'Put them side by side';
+      };
+      return wrap;
+    },
+
+    // W3 — motion sliced up and stored. Twelve drawings and a frame rate.
+    framerate: function () {
+      const N = 12;
+      const wrap = document.createElement('div');
+      wrap.className = 'w-frames';
+      const strip = document.createElement('div');
+      strip.className = 'w-strip';
+      const cells = [];
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const c = document.createElement('span');
+        c.className = 'w-cell';
+        c.innerHTML = '<svg viewBox="0 0 40 40" aria-hidden="true">' +
+          '<circle cx="20" cy="20" r="15" fill="none" stroke="currentColor" ' +
+            'stroke-opacity=".22" stroke-width="1"/>' +
+          '<circle cx="' + (20 + 15 * Math.cos(a)).toFixed(1) + '" cy="' +
+            (20 + 15 * Math.sin(a)).toFixed(1) + '" r="4" fill="currentColor"/></svg>';
+        strip.appendChild(c);
+        cells.push(c);
+      }
+      const foot = document.createElement('div');
+      foot.className = 'w-foot';
+      foot.innerHTML =
+        '<label class="mono">frame rate <input type="range" min="1" max="24" value="2"> ' +
+        '<output>2</output> fps</label>' +
+        '<p class="mono">Twelve drawings, and nothing moves until about twelve a second.</p>';
+      wrap.appendChild(strip);
+      wrap.appendChild(foot);
+
+      const range = foot.querySelector('input'), out = foot.querySelector('output');
+      let i = 0, timer = null;
+      function step() { cells.forEach(function (c, k) { c.classList.toggle('on', k === i); });
+                        i = (i + 1) % N; }
+      function run() {
+        clearInterval(timer);
+        const fps = +range.value;
+        out.textContent = fps;
+        timer = setInterval(step, 1000 / fps);
+      }
+      range.oninput = run;
+      run();
+      wrap.addEventListener('ccdp:teardown', function () { clearInterval(timer); });
+      return wrap;
+    },
+
+    // W4 — resolution as a width of plastic, on one of my own photographs.
+    resolution: function () {
+      const GAUGES = [
+        { name: 'Super 8', px: 10 }, { name: '16mm', px: 22 },
+        { name: '35mm', px: 56 },    { name: '70mm', px: 150 }
+      ];
+      const wrap = document.createElement('div');
+      wrap.className = 'w-res';
+      wrap.innerHTML =
+        '<canvas width="640" height="420"></canvas>' +
+        '<div class="w-foot">' +
+          '<label class="mono">gauge <input type="range" min="0" max="3" value="0" step="1"> ' +
+          '<output>Super 8</output></label>' +
+          '<p class="mono">The same photograph, sampled at four widths of plastic.</p>' +
+        '</div>';
+      const cv = wrap.querySelector('canvas'), ctx = cv.getContext('2d');
+      const range = wrap.querySelector('input'), out = wrap.querySelector('output');
+      const img = new Image();
+      img.src = 'images/w4-2.jpg';
+      function draw() {
+        const g = GAUGES[+range.value];
+        out.textContent = g.name;
+        if (!img.complete || !img.naturalWidth) return;
+        const w = g.px, h = Math.max(1, Math.round(w * cv.height / cv.width));
+        ctx.imageSmoothingEnabled = true;
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        ctx.drawImage(img, 0, 0, w, h);                 // down
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(cv, 0, 0, w, h, 0, 0, cv.width, cv.height);   // and back up
+      }
+      img.onload = draw;
+      range.oninput = draw;
+      draw();
+      return wrap;
+    }
+  };
 
   // --- per-week formats -----------------------------------------------
   // The brief asked for the different approach each week to be visible, so
@@ -1040,6 +1340,18 @@
     const rule = $('#week-rule');
     if (rule) rule.innerHTML = (RULES[fmt] || RULES.ideas)();
 
+    /* something to do, rather than a sentence about it */
+    const host = $('#week-widget');
+    [].forEach.call(host.children, function (c) {
+      c.dispatchEvent(new CustomEvent('ccdp:teardown'));
+    });
+    host.innerHTML = '';
+    const names = !wk.widget ? [] : [].concat(wk.widget);
+    host.hidden = !names.length;
+    names.forEach(function (n) {
+      if (WIDGETS[n]) host.appendChild(WIDGETS[n](wk));
+    });
+
     weekDot.style.color = t.color;
     weekMetaText.textContent = String(wk.week).padStart(2, '0') + ' · ' + t.label +
       ' · ' + fmtDate(wk.date);
@@ -1074,6 +1386,26 @@
     });
     collage.hidden = photos.length === 0;
 
+    /* an optional longer strip: the rest of what I photographed */
+    galleryEl.innerHTML = '';
+    galleryEl.hidden = !(wk.gallery && wk.gallery.length);
+    (wk.gallery || []).forEach(function (g, i) {
+      const fig = document.createElement('figure');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'g-shot';
+      btn.setAttribute('aria-label', 'Enlarge: ' + g.caption);
+      const im = document.createElement('img');
+      im.src = g.src; im.alt = g.caption; im.loading = 'lazy';
+      btn.appendChild(im);
+      btn.onclick = function () { openLightbox(g); };
+      const cap = document.createElement('figcaption');
+      cap.className = 'mono';
+      cap.textContent = g.caption;
+      fig.appendChild(btn); fig.appendChild(cap);
+      galleryEl.appendChild(fig);
+    });
+
     /* an optional video of the week's own work */
     videoEl.innerHTML = '';
     videoEl.hidden = !wk.video;
@@ -1107,11 +1439,69 @@
       linksEl.appendChild(a);
     });
 
-    /* body with highlighted phrases */
+    /* body with highlighted phrases.
+       A week is not always a paragraph. Blank lines start a new one, "- "
+       makes a list, "## " a small heading, and "11:04 | text" a timed note,
+       so a week can be notes, or questions, or a list, or just two lines. */
     bodyEl.innerHTML = '';
-    const p = document.createElement('p');
-    parseBody(wk.body).forEach(function (tok) {
-      if (tok.type === 'text') { p.appendChild(document.createTextNode(tok.value)); return; }
+    bodyEl.className = 'journal';
+
+    function fill(el, text) {
+      parseBody(text).forEach(function (tok) {
+        if (tok.type === 'text') { el.appendChild(document.createTextNode(tok.value)); return; }
+        el.appendChild(phraseNode(tok));
+      });
+    }
+
+    const blocks = wk.body.split(/\n{2,}/);
+    let list = null;
+    blocks.forEach(function (raw) {
+      const block = raw.trim();
+      if (!block) return;
+
+      if (/^- /.test(block)) {                       // a run of "- " lines
+        const ul = document.createElement('ul');
+        ul.className = 'j-list';
+        block.split(/\n/).forEach(function (line) {
+          const li = document.createElement('li');
+          fill(li, line.replace(/^-\s*/, ''));
+          ul.appendChild(li);
+        });
+        bodyEl.appendChild(ul);
+        return;
+      }
+
+      if (/^## /.test(block)) {
+        const h = document.createElement('h3');
+        h.className = 'j-head mono';
+        h.textContent = block.replace(/^##\s*/, '');
+        bodyEl.appendChild(h);
+        return;
+      }
+
+      // "a short label | the note" on every line becomes a two-column list
+      if (block.split(/\n/).every(function (l) { return /^[^|\n]{1,32}\|/.test(l); })) {
+        const dl = document.createElement('dl');
+        dl.className = 'j-notes';
+        block.split(/\n/).forEach(function (line) {
+          const cut = line.indexOf('|');
+          const dt = document.createElement('dt');
+          dt.className = 'mono';
+          dt.textContent = line.slice(0, cut).trim();
+          const dd = document.createElement('dd');
+          fill(dd, line.slice(cut + 1).trim());
+          dl.appendChild(dt); dl.appendChild(dd);
+        });
+        bodyEl.appendChild(dl);
+        return;
+      }
+
+      const para = document.createElement('p');
+      fill(para, block);
+      bodyEl.appendChild(para);
+    });
+
+    function phraseNode(tok) {
       const target = graph.byWeek[tok.target];
       const color = target ? colorOf(target.data) : 'var(--ink-dim)';
       const btn = document.createElement('span');
@@ -1129,9 +1519,8 @@
           ev.preventDefault(); ev.stopPropagation(); showPhrasePop(btn, tok);
         }
       };
-      p.appendChild(btn);
-    });
-    bodyEl.appendChild(p);
+      return btn;
+    }
 
     /* connected stars, both directions, generated from the graph */
     chips.innerHTML = '';

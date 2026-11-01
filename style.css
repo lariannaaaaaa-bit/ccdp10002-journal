@@ -739,7 +739,7 @@ body.galaxy-locked { overflow: hidden; }
 
 /* --- ideas: a page, not a screen ---------------------------------------- */
 [data-format="ideas"] .journal { max-width: 31rem; }
-[data-format="ideas"] .journal > p::first-letter {
+[data-format="ideas"] .journal > p:first-child::first-letter {
   float: left;
   font-size: 3.1em;
   line-height: 0.84;
@@ -750,5 +750,248 @@ body.galaxy-locked { overflow: hidden; }
 
 @media (max-width: 640px) {
   [data-format="space"] .collage { gap: 2px; }
-  [data-format="ideas"] .journal > p::first-letter { font-size: 2.6em; }
+  [data-format="ideas"] .journal > p:first-child::first-letter { font-size: 2.6em; }
+}
+
+/* ===========================================================================
+   WIDGETS — the parts of a week you operate instead of read
+   ========================================================================= */
+
+.widget { margin: clamp(1.8rem, 4vw, 2.6rem) 0 0; }
+
+.widget .w-foot { margin-top: 0.9rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem 1.1rem; }
+.widget .w-foot p { margin: 0; color: var(--ink-faint); text-transform: none; line-height: 1.6; }
+.widget label { display: flex; align-items: center; gap: 0.5rem; color: var(--ink-dim); text-transform: none; }
+.widget output { color: var(--week-color, var(--ink)); min-width: 4.2em; display: inline-block; }
+
+.widget input[type="range"] { accent-color: var(--week-color, #fff); width: clamp(8rem, 30vw, 14rem); }
+
+/* --- W2: simultaneous contrast ------------------------------------------ */
+.w-contrast .w-stage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  transition: gap 0.5s var(--ease);
+}
+.w-contrast .w-half {
+  aspect-ratio: 2 / 1;
+  display: grid;
+  place-items: center;
+  transition: background 0.6s var(--ease);
+}
+.w-contrast .w-light { background: #d9d9d9; }
+.w-contrast .w-dark  { background: #1b1b1b; }
+.w-contrast .w-chip {
+  width: 44%;
+  aspect-ratio: 1;
+  background: #8a8a8a;              /* identical in both halves */
+  border-radius: 0.2rem;
+  transition: transform 0.5s var(--ease);
+}
+.w-contrast.joined .w-light,
+.w-contrast.joined .w-dark { background: #777; }
+.w-contrast.joined .w-light .w-chip { transform: translateX(52%); }
+.w-contrast.joined .w-dark  .w-chip { transform: translateX(-52%); }
+
+/* --- W3: twelve drawings and a frame rate -------------------------------- */
+.w-frames .w-strip { display: flex; flex-wrap: wrap; gap: 3px; }
+.w-frames .w-cell {
+  flex: 1 1 3.4rem;
+  min-width: 2.6rem;
+  color: var(--week-color, var(--ink-dim));
+  opacity: 0.22;
+  background: rgba(232, 236, 243, 0.04);
+  border-radius: 0.2rem;
+  transition: opacity 0.06s linear;
+}
+.w-frames .w-cell.on { opacity: 1; background: rgba(232, 236, 243, 0.12); }
+.w-frames svg { display: block; width: 100%; height: auto; }
+
+/* --- W4: resolution as a width of plastic -------------------------------- */
+.w-res canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.3rem;
+  background: #000;
+  image-rendering: pixelated;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .w-frames .w-cell { transition: none; }
+}
+
+/* --- a week is not always a paragraph ----------------------------------- */
+.journal > * + * { margin-top: 1.15em; }
+
+.j-head {
+  margin: 1.8em 0 0;
+  color: var(--week-color, var(--ink-faint));
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+.j-list { margin: 0; padding: 0; list-style: none; }
+.j-list li {
+  position: relative;
+  padding-left: 1.5em;
+  margin-top: 0.5em;
+}
+.j-list li::before {
+  content: "";
+  position: absolute;
+  left: 0.15em;
+  top: 0.72em;
+  width: 0.7em;
+  height: 1px;
+  background: var(--week-color, var(--ink-faint));
+  opacity: 0.7;
+}
+
+.j-notes { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.5em 1.1em; }
+.j-notes dt {
+  color: var(--week-color, var(--ink-faint));
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  padding-top: 0.45em;
+  white-space: nowrap;
+}
+.j-notes dd { margin: 0; }
+
+@media (max-width: 560px) {
+  .j-notes { grid-template-columns: 1fr; gap: 0.15em; }
+  .j-notes dd { margin-bottom: 0.9em; }
+}
+
+/* --- W5: the harmonics Like A Star is built from ------------------------- */
+.w-harm { color: var(--week-color, var(--ink)); }
+.w-harm-grid { display: flex; flex-direction: column; gap: 4px; }
+.w-harm-row { display: grid; grid-template-columns: 5.4rem repeat(6, 1fr); gap: 4px; align-items: center; }
+.w-harm-head span { color: var(--ink-faint); font-size: 0.66rem; text-align: center; letter-spacing: 0.08em; }
+.w-harm-tab { color: var(--ink-faint); font-size: 0.66rem; letter-spacing: 0.04em; cursor: help; }
+
+.w-key {
+  appearance: none;
+  border: 1px solid rgba(220, 227, 236, 0.2);
+  background: rgba(232, 236, 243, 0.04);
+  border-radius: 0.25rem;
+  height: 2.6rem;
+  cursor: pointer;
+  transition: background 0.25s, border-color 0.25s, transform 0.08s;
+}
+.w-key:hover { background: rgba(232, 236, 243, 0.12); border-color: rgba(220, 227, 236, 0.4); }
+.w-key:active { transform: scale(0.96); }
+.w-key.lit { animation: key-lit 2.2s ease-out; }
+@keyframes key-lit {
+  0%   { background: var(--week-color, #fff); border-color: var(--week-color, #fff); }
+  100% { background: rgba(232, 236, 243, 0.04); border-color: rgba(220, 227, 236, 0.2); }
+}
+
+/* --- W4: the museum as doors, then the Constellation --------------------- */
+.w-door-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.4rem, 1fr));
+  gap: 4px;
+}
+
+.w-door {
+  position: relative;
+  appearance: none;
+  border: 1px solid rgba(220, 227, 236, 0.16);
+  background: rgba(232, 236, 243, 0.03);
+  border-radius: 0.3rem;
+  min-height: 5.4rem;
+  padding: 0.5rem 0.6rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 0.3s, border-color 0.3s;
+}
+.w-door:hover { background: rgba(232, 236, 243, 0.09); border-color: rgba(220, 227, 236, 0.34); }
+
+.w-door-front,
+.w-door-back {
+  position: absolute;
+  inset: 0;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+}
+.w-door-front { align-items: center; justify-content: center; color: var(--ink-faint); font-size: 0.7rem; letter-spacing: 0.1em; }
+.w-door-back { opacity: 0; transform: translateY(0.5rem); }
+.w-door.open .w-door-front { opacity: 0; transform: translateY(-0.5rem); }
+.w-door.open .w-door-back { opacity: 1; transform: none; }
+.w-door.open { background: rgba(232, 236, 243, 0.08); border-color: var(--week-color, rgba(220,227,236,.4)); }
+
+.w-door-back b { font-family: var(--serif); font-weight: 400; font-size: 0.92rem; line-height: 1.25; }
+.w-door-back i { color: var(--ink-dim); font-size: 0.74rem; font-style: normal; line-height: 1.3; }
+.w-door-back .mono { color: var(--ink-faint); font-size: 0.62rem; }
+
+.w-constellation { margin-top: 1.4rem; color: var(--week-color, var(--ink)); animation: fade-up 0.8s var(--ease) both; }
+.w-constellation svg { display: block; width: 100%; max-width: 22rem; margin: 0 auto; }
+.w-constellation p { margin: 0.9rem 0 0; color: var(--ink-dim); text-transform: none; line-height: 1.7; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(0.8rem); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 560px) {
+  .w-harm-row { grid-template-columns: 4.2rem repeat(6, 1fr); gap: 3px; }
+  .w-key { height: 2.1rem; }
+  .w-door-grid { grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); }
+}
+
+/* --- the longer strip: the rest of what I photographed ------------------ */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.75rem;
+  margin: clamp(1.4rem, 3.5vw, 2rem) 0 0;
+}
+
+.gallery figure { margin: 0; }
+
+.g-shot {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 0.3rem;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.g-shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  opacity: 0.82;
+  transition: opacity 0.3s, transform 0.6s var(--ease);
+}
+
+.g-shot:hover img { opacity: 1; transform: scale(1.04); }
+.g-shot:focus-visible { outline: 2px solid var(--week-color, #fff); outline-offset: 2px; }
+
+.gallery figcaption {
+  margin: 0.45rem 0 0;
+  color: var(--ink-faint);
+  font-size: 0.64rem;
+  line-height: 1.55;
+  text-transform: none;
+}
+
+[data-format="vision"] .g-shot { border-radius: 0.15rem; }
+[data-format="space"]  .g-shot { border-radius: 0; }
+[data-format="nature"] .g-shot { border-radius: 0.9rem; }
+
+@media (max-width: 560px) {
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 0.55rem; }
+  .gallery figcaption { font-size: 0.6rem; }
 }
