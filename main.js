@@ -93,6 +93,11 @@
 
   // the journal is organised by topic, not by week number
   function topicOf(w) { return w.short || w.title; }
+
+  // a week you can operate rather than only read gets a different star
+  function isPlayable(w) {
+    return !!(w.widget || w.video || (w.links && w.links.length));
+  }
   function colorOf(w) { return theme(w).color; }
 
   function fmtDate(iso) {
@@ -435,13 +440,21 @@
     g.setAttribute('tabindex', '0');
     g.setAttribute('role', 'link');
     g.setAttribute('aria-label', n.data.title + ' — ' + theme(n.data).label + ', ' +
-      n.degree + ' connection' + (n.degree === 1 ? '' : 's'));
+      n.degree + ' connection' + (n.degree === 1 ? '' : 's') +
+      (isPlayable(n.data) ? ', has something to play with' : ''));
 
     g.appendChild(svgEl('circle', {
       class: 'halo', r: n.r * CONFIG.star.haloScale,
       fill: 'url(#halo-' + (CONFIG.themes[n.data.theme] ? n.data.theme : 'ideas') + ')',
       opacity: CONFIG.star.haloOpacity
     }));
+    if (isPlayable(n.data)) {
+      g.classList.add('is-playable');
+      g.appendChild(svgEl('circle', {
+        class: 'ring', r: n.r + 6, fill: 'none', stroke: c,
+        'stroke-width': 1, 'stroke-opacity': 0.55
+      }));
+    }
     g.appendChild(svgEl('circle', { class: 'core', r: n.r, fill: c, 'fill-opacity': 0.95 }));
     g.appendChild(svgEl('circle', { class: 'pip', r: Math.max(0.9, n.r * 0.3), 'fill-opacity': 0.9 }));
 

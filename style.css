@@ -995,3 +995,27 @@ body.galaxy-locked { overflow: hidden; }
   .gallery { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 0.55rem; }
   .gallery figcaption { font-size: 0.6rem; }
 }
+
+/* --- a star you can play with wears a ring ------------------------------ */
+.star .ring {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: ring-breathe 4.2s ease-in-out infinite;
+  transition: stroke-opacity 0.25s;
+}
+
+@keyframes ring-breathe {
+  0%, 100% { transform: scale(1);    stroke-opacity: 0.5; }
+  50%      { transform: scale(1.16); stroke-opacity: 0.16; }
+}
+
+.star:hover .ring,
+.star.is-active .ring { stroke-opacity: 0.95; animation-play-state: paused; }
+
+/* the label on a playable week leans forward a little too */
+.star.is-playable .wlabel { fill: var(--ink-dim); }
+.star.is-playable:hover .wlabel { fill: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .star .ring { animation: none; stroke-opacity: 0.6; }
+}
